@@ -35,12 +35,12 @@ export const ADMIN_ENDPOINTS = [
 
 // Public endpoints that don't require authentication
 export const PUBLIC_ENDPOINTS = [
-  '/api/webhook',        // Meta webhook verification
+  '/api/webhook/*',      // Meta webhook verification
   '/api/health',         // Health check
   '/api/system',         // System status (public info only)
-  '/api/flows',          // Workflow management (internal dashboard)
-  '/api/flow-engine',    // Workflow execution engine (internal)
+  '/api/flow-engine/*',  // Workflow execution engine (internal)
   '/api/campaign/dispatch', // QStash dispatch webhook (signature verified)
+  '/api/flows/endpoint', // WhatsApp Flow data exchange endpoint (public callback)
 ]
 
 // ============================================================================
@@ -102,7 +102,13 @@ export function isAdminEndpoint(pathname: string): boolean {
  * Check if request is for a public endpoint
  */
 export function isPublicEndpoint(pathname: string): boolean {
-  return PUBLIC_ENDPOINTS.some(endpoint => pathname.startsWith(endpoint))
+  return PUBLIC_ENDPOINTS.some(endpoint => {
+    if (endpoint.endsWith('/*')) {
+      const prefix = endpoint.slice(0, -2)
+      return pathname === prefix || pathname.startsWith(`${prefix}/`)
+    }
+    return pathname === endpoint
+  })
 }
 
 /**

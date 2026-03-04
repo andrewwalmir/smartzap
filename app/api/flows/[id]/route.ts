@@ -6,6 +6,7 @@ export const revalidate = 0
 
 import { supabase } from '@/lib/supabase'
 import { settingsDb } from '@/lib/supabase-db'
+import { requireSessionOrApiKey } from '@/lib/request-auth'
 
 function isMissingDbColumn(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
@@ -28,6 +29,9 @@ const PatchFlowSchema = z
   .strict()
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const auth = await requireSessionOrApiKey(_req)
+  if (auth) return auth
+
   const { id } = await ctx.params
   try {
     const { data, error } = await supabase
@@ -49,6 +53,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 }
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const auth = await requireSessionOrApiKey(req)
+  if (auth) return auth
+
   const { id } = await ctx.params
   try {
     const json = await req.json()
@@ -210,7 +217,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const auth = await requireSessionOrApiKey(req)
+  if (auth) return auth
+
   const { id } = await ctx.params
   try {
     const { error } = await supabase.from('flows').delete().eq('id', id)

@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase'
+import { NextRequest } from 'next/server'
+import { requireSessionOrApiKey } from '@/lib/request-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,6 +81,9 @@ async function resolveFlowName(flowId: string | null): Promise<string | null> {
  * - campaignId
  */
 export async function GET(request: Request) {
+  const auth = await requireSessionOrApiKey(request as NextRequest)
+  if (auth) return auth
+
   try {
     const { searchParams } = new URL(request.url)
     const flowId = searchParams.get('flowId')

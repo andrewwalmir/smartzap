@@ -5,6 +5,7 @@ export const revalidate = 0
 
 import { supabase } from '@/lib/supabase'
 import { clampInt } from '@/lib/validation-utils'
+import { requireSessionOrApiKey } from '@/lib/request-auth'
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
@@ -42,6 +43,9 @@ function isMissingColumn(error: unknown, column: string): boolean {
  * - limit (default 50, max 200)
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireSessionOrApiKey(request)
+  if (auth) return auth
+
   try {
     const sp = request.nextUrl.searchParams
     const flowId = sp.get('flowId')

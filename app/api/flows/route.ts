@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 
 // Cache GET requests for 5 minutes - flows rarely change
@@ -8,6 +8,7 @@ export const revalidate = 300
 import { supabase } from '@/lib/supabase'
 import { settingsDb } from '@/lib/supabase-db'
 import { getFlowTemplateByKey } from '@/lib/flow-templates'
+import { requireSessionOrApiKey } from '@/lib/request-auth'
 
 function isMissingDbColumn(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
@@ -43,7 +44,10 @@ const CreateFlowSchema = z
   })
   .strict()
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireSessionOrApiKey(request)
+  if (auth) return auth
+
   try {
     const { data, error } = await supabase
       .from('flows')
@@ -86,6 +90,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireSessionOrApiKey(request as NextRequest)
+  if (auth) return auth
+
   try {
     const json = await request.json()
     const input = CreateFlowSchema.parse(json)

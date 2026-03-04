@@ -1,4 +1,4 @@
-/**
+﻿/**
  * User Authentication System for Single-Tenant DaaS
  * 
  * Simple auth using MASTER_PASSWORD from environment variable
@@ -29,11 +29,20 @@ const SESSION_MAX_AGE = 60 * 60 * 24 * 7 // 7 days in seconds
 const MAX_LOGIN_ATTEMPTS = 5
 const LOCKOUT_DURATION = 15 * 60 * 1000 // 15 minutes
 
-// Novo formato: múltiplas sessões simultâneas (evita invalidação entre domínios/devices)
+// Novo formato: mÃºltiplas sessÃµes simultÃ¢neas (evita invalidaÃ§Ã£o entre domÃ­nios/devices)
 // Persistido em `settings.key = 'session_tokens'` como JSON.
 type StoredSession = {
-  token: string
+  tokenHash?: string
+  legacyToken?: string
   createdAt: string
+}
+
+async function hashSessionToken(token: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(`smartzap_session_v1:${token}`)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 // ============================================================================
@@ -68,7 +77,7 @@ async function upsertSetting(key: string, value: string): Promise<void> {
     .upsert({ key, value, updated_at: now }, { onConflict: 'key' })
 
   if (error) {
-    // Não silencie erros de permissão/RLS — isso causa loops e estados falsos.
+    // NÃ£o silencie erros de permissÃ£o/RLS â€” isso causa loops e estados falsos.
     throw new Error(`Falha ao salvar setting "${key}": ${error.message}`)
   }
 }
@@ -105,11 +114,19 @@ function parseStoredSessions(raw: string): StoredSession[] {
     const sessions: StoredSession[] = []
     for (const item of parsed) {
       if (!item || typeof item !== 'object') continue
+      const tokenHash = (item as any).tokenHash
       const token = (item as any).token
       const createdAt = (item as any).createdAt
-      if (typeof token !== 'string' || token.length < 10) continue
       if (typeof createdAt !== 'string' || !createdAt) continue
-      sessions.push({ token, createdAt })
+
+      if (typeof tokenHash === 'string' && /^[a-f0-9]{64}$/i.test(tokenHash)) {
+        sessions.push({ tokenHash: tokenHash.toLowerCase(), createdAt })
+        continue
+      }
+
+      if (typeof token === 'string' && token.length >= 10) {
+        sessions.push({ legacyToken: token, createdAt })
+      }
     }
     return sessions
   } catch {
@@ -133,18 +150,32 @@ async function getStoredSessions(): Promise<StoredSession[] | null> {
 }
 
 async function setStoredSessions(sessions: StoredSession[]): Promise<void> {
-  await upsertSetting('session_tokens', JSON.stringify(sessions))
+  const normalized: StoredSession[] = []
+  for (const session of sessions) {
+    if (typeof session.createdAt !== 'string' || !session.createdAt) continue
+
+    if (session.tokenHash && /^[a-f0-9]{64}$/i.test(session.tokenHash)) {
+      normalized.push({ tokenHash: session.tokenHash.toLowerCase(), createdAt: session.createdAt })
+      continue
+    }
+
+    if (session.legacyToken && session.legacyToken.length >= 10) {
+      const tokenHash = await hashSessionToken(session.legacyToken)
+      normalized.push({ tokenHash, createdAt: session.createdAt })
+    }
+  }
+  await upsertSetting('session_tokens', JSON.stringify(normalized))
 }
 
 /**
  * Check if setup is completed (company exists)
  */
 export async function isSetupComplete(): Promise<boolean> {
-  // Em produção, usamos a env var para evitar consultas e loops.
+  // Em produÃ§Ã£o, usamos a env var para evitar consultas e loops.
   if (process.env.SETUP_COMPLETE === 'true') return true
 
   // Em dev/local, o fluxo pode rodar sem Vercel.
-  // Então consideramos "setup completo" se a empresa já foi gravada no banco.
+  // EntÃ£o consideramos "setup completo" se a empresa jÃ¡ foi gravada no banco.
   if (process.env.NODE_ENV !== 'production') {
     try {
       const { data, error } = await supabase
@@ -154,7 +185,7 @@ export async function isSetupComplete(): Promise<boolean> {
         .single()
 
       if (error) {
-        // Ajuda a diagnosticar "isSetup:false" causado por permissão negada.
+        // Ajuda a diagnosticar "isSetup:false" causado por permissÃ£o negada.
         console.warn('[isSetupComplete] settings/company_name query error:', error.message)
         return false
       }
@@ -218,18 +249,18 @@ export async function completeSetup(
   }
 
   if (!companyAdmin || companyAdmin.trim().length < 2) {
-    return { success: false, error: 'Nome do responsável deve ter pelo menos 2 caracteres' }
+    return { success: false, error: 'Nome do responsÃ¡vel deve ter pelo menos 2 caracteres' }
   }
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { success: false, error: 'E-mail inválido' }
+    return { success: false, error: 'E-mail invÃ¡lido' }
   }
 
   // Normalize first so we accept inputs like "5511999999999" (without '+')
   const normalizedPhoneE164ForValidation = normalizePhoneNumber(phone)
   const phoneValidation = validateAnyPhoneNumber(normalizedPhoneE164ForValidation)
   if (!phoneValidation.isValid) {
-    return { success: false, error: phoneValidation.error || 'Telefone inválido' }
+    return { success: false, error: phoneValidation.error || 'Telefone invÃ¡lido' }
   }
 
   try {
@@ -251,8 +282,8 @@ export async function completeSetup(
       upsertSetting('company_created_at', now)
     ])
 
-    // Seed automático do "Contato de Teste" (Settings → Testes)
-    // Só cria se ainda não existir, para não sobrescrever a escolha do usuário.
+    // Seed automÃ¡tico do "Contato de Teste" (Settings â†’ Testes)
+    // SÃ³ cria se ainda nÃ£o existir, para nÃ£o sobrescrever a escolha do usuÃ¡rio.
     try {
       const existingTestContact = await getSetting('test_contact')
       const adminFullName = companyAdmin.trim()
@@ -269,8 +300,8 @@ export async function completeSetup(
           })
         )
       } else {
-        // Se o contato já existe mas parece ter sido seedado automaticamente com o nome completo,
-        // podemos ajustar para o primeiro nome sem sobrescrever personalizações.
+        // Se o contato jÃ¡ existe mas parece ter sido seedado automaticamente com o nome completo,
+        // podemos ajustar para o primeiro nome sem sobrescrever personalizaÃ§Ãµes.
         try {
           const parsed = JSON.parse(existingTestContact.value) as unknown
           if (parsed && typeof parsed === 'object') {
@@ -281,7 +312,7 @@ export async function completeSetup(
             const shouldUpgradePhoneToE164 = !!currentPhoneRaw && !currentPhoneRaw.startsWith('+')
 
             // Upgrade seguro de seeds antigos:
-            // - Se o nome é o nome completo do admin (seed antigo) e o telefone bate (por dígitos),
+            // - Se o nome Ã© o nome completo do admin (seed antigo) e o telefone bate (por dÃ­gitos),
             //   atualiza para primeiro nome e telefone em E.164.
             if (currentName === adminFullName && currentPhoneDigits === storedPhoneDigits) {
               await upsertSetting(
@@ -294,7 +325,7 @@ export async function completeSetup(
                 })
               )
             } else if (shouldUpgradePhoneToE164 && currentPhoneDigits === storedPhoneDigits) {
-              // Se o usuário não personalizou o nome mas o telefone está sem '+',
+              // Se o usuÃ¡rio nÃ£o personalizou o nome mas o telefone estÃ¡ sem '+',
               // apenas normaliza para E.164.
               await upsertSetting(
                 'test_contact',
@@ -307,11 +338,11 @@ export async function completeSetup(
             }
           }
         } catch {
-          // Se não for JSON válido, não mexe.
+          // Se nÃ£o for JSON vÃ¡lido, nÃ£o mexe.
         }
       }
     } catch (err) {
-      // Não bloqueia o setup inteiro se apenas o seed do contato de teste falhar.
+      // NÃ£o bloqueia o setup inteiro se apenas o seed do contato de teste falhar.
       console.warn('[completeSetup] Falha ao criar test_contact automaticamente:', err)
     }
 
@@ -330,7 +361,7 @@ export async function completeSetup(
     }
   } catch (error) {
     console.error('Setup error:', error)
-    return { success: false, error: 'Erro ao salvar configuração' }
+    return { success: false, error: 'Erro ao salvar configuraÃ§Ã£o' }
   }
 }
 
@@ -362,18 +393,18 @@ function isHashFormat(value: string): boolean {
  * Validates against MASTER_PASSWORD env var
  *
  * Aceita dois formatos de MASTER_PASSWORD:
- * - Hash SHA-256 (64 chars hex): compara com hash da senha digitada (retrocompatível)
+ * - Hash SHA-256 (64 chars hex): compara com hash da senha digitada (retrocompatÃ­vel)
  * - Texto puro: compara diretamente (mais simples para reset)
  */
 export async function loginUser(password: string): Promise<UserAuthResult> {
   if (!password) {
-    return { success: false, error: 'Senha é obrigatória' }
+    return { success: false, error: 'Senha Ã© obrigatÃ³ria' }
   }
 
   // Check if MASTER_PASSWORD is configured
   const masterPassword = process.env.MASTER_PASSWORD
   if (!masterPassword) {
-    return { success: false, error: 'MASTER_PASSWORD não configurada nas variáveis de ambiente' }
+    return { success: false, error: 'MASTER_PASSWORD nÃ£o configurada nas variÃ¡veis de ambiente' }
   }
 
   // Check rate limiting
@@ -383,16 +414,16 @@ export async function loginUser(password: string): Promise<UserAuthResult> {
   }
 
   try {
-    // Detecta automaticamente se MASTER_PASSWORD é hash ou texto puro
+    // Detecta automaticamente se MASTER_PASSWORD Ã© hash ou texto puro
     const masterIsHash = isHashFormat(masterPassword)
 
     let isValid: boolean
     if (masterIsHash) {
-      // Comportamento original: MASTER_PASSWORD é hash, compara com hash da senha digitada
+      // Comportamento original: MASTER_PASSWORD Ã© hash, compara com hash da senha digitada
       const passwordHash = await hashPasswordForLogin(password)
       isValid = passwordHash === masterPassword
     } else {
-      // Novo: MASTER_PASSWORD é texto puro, compara diretamente
+      // Novo: MASTER_PASSWORD Ã© texto puro, compara diretamente
       isValid = password === masterPassword
     }
 
@@ -425,21 +456,24 @@ export async function logoutUser(): Promise<void> {
   const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value
   cookieStore.delete(SESSION_COOKIE_NAME)
 
-  // Best-effort: remove o token atual da lista de sessões para revogar imediatamente.
+  // Best-effort: remove o token atual da lista de sessÃµes para revogar imediatamente.
   if (sessionToken) {
     try {
       const now = new Date()
       const stored = await getStoredSessions()
       if (stored) {
         const pruned = pruneExpiredSessions(stored, now)
-        const filtered = pruned.filter(s => s.token !== sessionToken)
-        // Só grava se houver mudança.
+        const sessionTokenHash = await hashSessionToken(sessionToken)
+        const filtered = pruned.filter(
+          s => s.tokenHash !== sessionTokenHash && s.legacyToken !== sessionToken
+        )
+        // SÃ³ grava se houver mudanÃ§a.
         if (filtered.length !== pruned.length) {
           await setStoredSessions(filtered.slice(-50))
         }
       }
     } catch {
-      // Não bloqueia logout
+      // NÃ£o bloqueia logout
     }
   }
 }
@@ -454,20 +488,27 @@ export async function logoutUser(): Promise<void> {
 async function createSession(): Promise<void> {
   const cookieStore = await cookies()
   const sessionToken = crypto.randomUUID()
+  const sessionTokenHash = await hashSessionToken(sessionToken)
 
   const nowIso = new Date().toISOString()
 
   // Store session in database (multi-session)
-  // Mantém múltiplos tokens ativos para evitar invalidação entre domínios/devices.
+  // MantÃ©m mÃºltiplos tokens ativos para evitar invalidaÃ§Ã£o entre domÃ­nios/devices.
   const existing = await getStoredSessions()
   const now = new Date()
   const pruned = pruneExpiredSessions(existing || [], now)
-  const nextSessions = [...pruned, { token: sessionToken, createdAt: nowIso }].slice(-50)
-  await setStoredSessions(nextSessions)
+  const nextSessions = [...pruned, { tokenHash: sessionTokenHash, createdAt: nowIso }].slice(-50)
+  await Promise.all([
+    setStoredSessions(nextSessions),
+    upsertSetting('session_token_hash', sessionTokenHash),
+  ])
 
-  // Backward-compat: ainda grava o token legado para instâncias antigas (se houver).
-  // Não usamos mais esse campo para validar quando `session_tokens` existe.
-  await upsertSetting('session_token', sessionToken)
+  // Best-effort: remove token legado em texto puro.
+  try {
+    await deleteSetting('session_token')
+  } catch {
+    // ignore
+  }
 
   // Set cookie
   cookieStore.set(SESSION_COOKIE_NAME, sessionToken, {
@@ -490,15 +531,19 @@ export async function validateSession(): Promise<boolean> {
     if (!sessionToken) return false
 
     const now = new Date()
+    const sessionTokenHash = await hashSessionToken(sessionToken)
 
     // Prefer multi-session list when available
     const storedSessions = await getStoredSessions()
     if (storedSessions) {
       const pruned = pruneExpiredSessions(storedSessions, now)
-      const found = pruned.some(s => s.token === sessionToken)
+      const found = pruned.some(
+        s => s.tokenHash === sessionTokenHash || s.legacyToken === sessionToken
+      )
 
-      // Best-effort: se havia sessões expiradas, compacta a lista.
-      if (pruned.length !== storedSessions.length) {
+      // Best-effort: se havia sessÃµes expiradas, compacta a lista.
+      const needsNormalization = pruned.some(s => !s.tokenHash || !!s.legacyToken)
+      if (pruned.length !== storedSessions.length || needsNormalization) {
         try {
           await setStoredSessions(pruned.slice(-50))
         } catch {
@@ -507,6 +552,12 @@ export async function validateSession(): Promise<boolean> {
       }
 
       if (!found) return false
+      return true
+    }
+
+    // Legacy fallback: single hash token
+    const hashSetting = await getSetting('session_token_hash')
+    if (hashSetting?.value && hashSetting.value === sessionTokenHash) {
       return true
     }
 
@@ -524,7 +575,17 @@ export async function validateSession(): Promise<boolean> {
       return false
     }
 
-    return sessionToken === storedToken
+    if (sessionToken !== storedToken) return false
+
+    // Migra token legado para hash.
+    try {
+      await upsertSetting('session_token_hash', sessionTokenHash)
+      await deleteSetting('session_token')
+    } catch {
+      // ignore
+    }
+
+    return true
   } catch {
     return false
   }
@@ -601,12 +662,13 @@ async function clearFailedAttempts(): Promise<void> {
  *
  * ACEITA DOIS FORMATOS:
  * - Texto puro: "minhaSenha123" (recomendado - mais simples)
- * - Hash SHA-256: 64 caracteres hex (retrocompatível com instalações antigas)
+ * - Hash SHA-256: 64 caracteres hex (retrocompatÃ­vel com instalaÃ§Ãµes antigas)
  *
  * COMO RESETAR A SENHA:
- * 1. Vá em Vercel Dashboard → Settings → Environment Variables
+ * 1. VÃ¡ em Vercel Dashboard â†’ Settings â†’ Environment Variables
  * 2. Edite MASTER_PASSWORD e coloque sua nova senha (ex: "novaSenha456")
  * 3. Clique em Save
- * 4. Vá em Deployments → clique nos 3 pontos do último deploy → Redeploy
- * 5. Pronto! Faça login com a nova senha
+ * 4. VÃ¡ em Deployments â†’ clique nos 3 pontos do Ãºltimo deploy â†’ Redeploy
+ * 5. Pronto! FaÃ§a login com a nova senha
  */
+
