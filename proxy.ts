@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
             if ((envAdminKey && apiKey === envAdminKey) || (envApiKey && apiKey === envApiKey)) {
                 // Rate Limiting para API Keys Públicas (100 reqs/10s)
                 if (envApiKey && apiKey === envApiKey) {
-                    const ip = request.ip ?? request.headers.get('x-forwarded-for') ?? 'unknown'
+                    const ip = request.headers.get('x-forwarded-for') ?? 'unknown'
                     const identifier = `api_${apiKey.slice(-4)}_${ip}`
 
                     if (isRedisConfigured() && redis) {
