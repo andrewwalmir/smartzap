@@ -12,6 +12,7 @@ import { fetchWithTimeout, safeJson } from '@/lib/server-http'
 
 import { CampaignStatus, ContactStatus } from '@/types'
 import { unauthorizedResponse, verifyApiKey } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 import { createHash } from 'crypto'
 
 interface DispatchContact {
@@ -113,15 +114,15 @@ async function fetchSingleTemplateFromMeta(params: {
   templateName: string
 }): Promise<
   | {
-      name: string
-      language?: string
-      category?: string
-      status?: string
-      components?: unknown
-      parameter_format?: 'positional' | 'named' | string
-      spec_hash?: string | null
-      fetched_at?: string | null
-    }
+    name: string
+    language?: string
+    category?: string
+    status?: string
+    components?: unknown
+    parameter_format?: 'positional' | 'named' | string
+    spec_hash?: string | null
+    fetched_at?: string | null
+  }
   | null
 > {
   const { businessAccountId, accessToken, templateName } = params
@@ -281,7 +282,7 @@ export async function POST(request: NextRequest) {
         resolvedTemplateVariables = tv
       }
     }
-    console.log('[Dispatch] Loaded template_variables from database:', resolvedTemplateVariables)
+    logger.info('Loaded template_variables from database for campaign', { campaignId })
   }
 
   // A partir daqui, `template` deve ser sempre definido (já validado acima no Promise.all).
@@ -289,8 +290,8 @@ export async function POST(request: NextRequest) {
   const templateComponents = (template as any)?.components || (template as any)?.content || []
   const hasFlowButton = Array.isArray(templateComponents)
     ? templateComponents.some((c: any) => String(c?.type || '').toUpperCase() === 'BUTTONS' &&
-        Array.isArray(c?.buttons) &&
-        c.buttons.some((b: any) => String(b?.type || '').toUpperCase() === 'FLOW'))
+      Array.isArray(c?.buttons) &&
+      c.buttons.some((b: any) => String(b?.type || '').toUpperCase() === 'FLOW'))
     : false
 
   // Se o template tem HEADER de mídia, o envio precisa do "link" (URL) da mídia do template.
@@ -391,7 +392,7 @@ export async function POST(request: NextRequest) {
       custom_fields: (row as any).custom_fields || {}
     }))
 
-    console.log(`[Dispatch] Loaded ${contacts.length} contacts from database for campaign ${campaignId}`)
+    logger.info(`Loaded ${contacts.length} contacts from database for campaign`, { campaignId })
   }
 
   // =====================
@@ -480,10 +481,10 @@ export async function POST(request: NextRequest) {
   for (const c of dedupedInput) {
     if (typeof (c as any).contactId === 'string') {
       const trimmed = String((c as any).contactId).trim()
-      ;(c as any).contactId = trimmed.length ? trimmed : undefined
+        ; (c as any).contactId = trimmed.length ? trimmed : undefined
     }
     if (typeof (c as any).phone === 'string') {
-      ;(c as any).phone = String((c as any).phone).trim()
+      ; (c as any).phone = String((c as any).phone).trim()
     }
   }
 
@@ -563,8 +564,8 @@ export async function POST(request: NextRequest) {
   // Process suppressions
   const suppressionsByPhone = suppressionsResult instanceof Map
     ? new Map(
-        Array.from(suppressionsResult.entries()).map(([phone, row]) => [phone, { phone, reason: row.reason, source: row.source }])
-      )
+      Array.from(suppressionsResult.entries()).map(([phone, row]) => [phone, { phone, reason: row.reason, source: row.source }])
+    )
     : new Map<string, { phone: string; reason: string | null; source: string | null }>()
 
   const validContacts: DispatchContactResolved[] = []
@@ -704,40 +705,40 @@ export async function POST(request: NextRequest) {
       .filter((c) => !lockedContactIds.has(String(c.contactId)))
       .filter((c) => String(c.phone || '').trim().length > 0)
       .map(c => ({
-      campaign_id: campaignId,
-      contact_id: c.contactId || null,
-      phone: String(c.phone).trim(),
-      name: c.name || '',
-      email: c.email || null,
-      custom_fields: c.custom_fields || {},
-      trace_id: traceId,
-      status: 'pending',
-      skipped_at: null,
-      skip_code: null,
-      skip_reason: null,
-      error: null,
-    }))
+        campaign_id: campaignId,
+        contact_id: c.contactId || null,
+        phone: String(c.phone).trim(),
+        name: c.name || '',
+        email: c.email || null,
+        custom_fields: c.custom_fields || {},
+        trace_id: traceId,
+        status: 'pending',
+        skipped_at: null,
+        skip_code: null,
+        skip_reason: null,
+        error: null,
+      }))
 
     const rowsSkipped = skippedContacts
       .filter(({ contact }) => !lockedContactIds.has(String(contact.contactId || '')))
       .map(({ contact, code, reason, normalizedPhone }) => ({
-      campaign_id: campaignId,
-      contact_id: contact.contactId || null,
-      // Nunca permitir null/undefined: campaign_contacts.phone é NOT NULL.
-      phone: String(normalizedPhone || (contact as any).phone || '').trim() || normalizePhoneNumber(String((contact as any).phone || '')),
-      name: contact.name || '',
-      email: contact.email || null,
-      custom_fields: contact.custom_fields || {},
-      trace_id: traceId,
-      status: 'skipped',
-      skipped_at: nowIso,
-      skip_code: code,
-      skip_reason: reason,
-      // Compat + integridade: o schema tem CHECK que exige failure_reason OU error quando status='skipped'
-      // (ver campaign_contacts_skipped_reason_check).
-      failure_reason: reason,
-      error: reason,
-    }))
+        campaign_id: campaignId,
+        contact_id: contact.contactId || null,
+        // Nunca permitir null/undefined: campaign_contacts.phone é NOT NULL.
+        phone: String(normalizedPhone || (contact as any).phone || '').trim() || normalizePhoneNumber(String((contact as any).phone || '')),
+        name: contact.name || '',
+        email: contact.email || null,
+        custom_fields: contact.custom_fields || {},
+        trace_id: traceId,
+        status: 'skipped',
+        skipped_at: nowIso,
+        skip_code: code,
+        skip_reason: reason,
+        // Compat + integridade: o schema tem CHECK que exige failure_reason OU error quando status='skipped'
+        // (ver campaign_contacts_skipped_reason_check).
+        failure_reason: reason,
+        error: reason,
+      }))
 
     // Monta todas as linhas e dedupe pela chave de idempotência.
     // Preferimos "pending" quando houver colisão (contato válido vence).
@@ -761,22 +762,25 @@ export async function POST(request: NextRequest) {
       if (error && isMissingOnConflictConstraintError(error)) {
         console.warn('[Dispatch] onConflict campaign_id,contact_id não existe. Tentando fallback campaign_id,phone (legacy).')
         tried = 'campaign_id, phone'
-        ;({ error } = await supabase
-          .from('campaign_contacts')
-          .upsert(
-            // para esse fallback, a chave vira (campaign_id, phone)
-            dedupeBy(allRows, (r) => `${String(r.campaign_id)}::${String(r.phone)}`),
-            { onConflict: tried }
-          ))
+          ; ({ error } = await supabase
+            .from('campaign_contacts')
+            .upsert(
+              // para esse fallback, a chave vira (campaign_id, phone)
+              dedupeBy(allRows, (r) => `${String(r.campaign_id)}::${String(r.phone)}`),
+              { onConflict: tried }
+            ))
       }
 
       if (error) {
-        ;(error as any).__dispatch_on_conflict = tried
+        ; (error as any).__dispatch_on_conflict = tried
         throw error
       }
     }
 
-    console.log(`[Dispatch] Pré-check: ${validContacts.length} válidos, ${skippedContacts.length} ignorados (skipped)`)
+    logger.info('Pre-check completed for campaign dispatch', {
+      validCount: validContacts.length,
+      skippedCount: skippedContacts.length
+    })
 
     // Atualiza estatísticas do planner após bulk upsert (best-effort).
     // Sem isso, queries subsequentes (contagens, filtros) podem usar planos ruins
@@ -966,18 +970,18 @@ export async function POST(request: NextRequest) {
     const isLocalhost = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')
 
 
-    console.log(`[Dispatch] Triggering workflow at: ${baseUrl}/api/campaign/workflow`)
-    console.log(`[Dispatch] baseUrl debug: ${JSON.stringify({ vercelEnv, hasExplicitAppUrl: Boolean(explicitAppUrl), hasRequestOrigin: Boolean(requestOrigin), productionUrl: productionUrl || null, vercelUrl: vercelUrl || null })}`)
-    console.log(`[Dispatch] Template variables: ${JSON.stringify(resolvedTemplateVariables)}`)
-    console.log(`[Dispatch] Is localhost: ${isLocalhost}`)
-    console.log(`[Dispatch] traceId: ${traceId}`)
+    logger.info('Scheduling Workflow', {
+      baseUrl,
+      campaignId,
+      isLocalhost,
+      traceId: traceId.slice(0, 8),
+    })
 
     // Ler config de throttle AQUI no dispatch (onde temos acesso garantido ao Supabase)
     // e passar para o workflow, evitando que o QStash precise acessar o DB
     const throttleConfigResult = await getAdaptiveThrottleConfigWithSource().catch(() => null)
     const throttleConfig = throttleConfigResult?.config ?? null
     const throttleSource = throttleConfigResult?.source ?? 'fallback'
-    console.log(`[Dispatch] Throttle config source: ${throttleSource}`, throttleConfig ? JSON.stringify(throttleConfig) : 'null')
 
     const workflowPayload = {
       campaignId,
@@ -1086,7 +1090,7 @@ export async function POST(request: NextRequest) {
         const msg = String((updErr as any)?.message || '').toLowerCase()
         const isMissingCol = msg.includes('does not exist') && msg.includes('last_error')
         if (isMissingCol) {
-          ;({ error: updErr } = await supabase
+          ; ({ error: updErr } = await supabase
             .from('campaigns')
             .update(baseUpdate)
             .eq('id', campaignId)

@@ -139,58 +139,6 @@ export const supabase = {
         return client.rpc(fn, params)
     },
 
-    /**
-     * Execute SQL "raw" (uso interno / compat)
-     * Observação: este helper é limitado — prefira query builder / RPCs explícitas.
-     */
-    async execute(query: string | { sql: string; args?: unknown[] }): Promise<{
-        rows: Record<string, unknown>[];
-        rowsAffected: number
-    }> {
-        const sql = typeof query === 'string' ? query : query.sql
-        const args = typeof query === 'object' ? query.args || [] : []
-
-        // Parse SQL to determine operation type and table
-        const sqlLower = sql.toLowerCase().trim()
-
-        // For simple SELECT queries, try to use Supabase's query builder
-        if (sqlLower.startsWith('select')) {
-            // Extract table name (basic parsing)
-            const fromMatch = sql.match(/from\s+(\w+)/i)
-            if (fromMatch) {
-                const table = fromMatch[1]
-                const client = getSupabaseAdmin()
-                if (!client) throw new Error('Supabase not configured')
-                const { data, error } = await client.from(table).select('*')
-                if (error) throw error
-                return { rows: data || [], rowsAffected: 0 }
-            }
-        }
-
-        // For UPDATE/INSERT/DELETE, use table operations
-        if (sqlLower.startsWith('update')) {
-            const tableMatch = sql.match(/update\s+(\w+)/i)
-            if (tableMatch) {
-                const table = tableMatch[1]
-                // Extract SET and WHERE clauses - this is simplified
-                // For complex queries, we fall through to RPC
-                // Return empty for now - specific routes should be refactored
-                return { rows: [], rowsAffected: 1 }
-            }
-        }
-
-        if (sqlLower.startsWith('insert')) {
-            return { rows: [], rowsAffected: 1 }
-        }
-
-        if (sqlLower.startsWith('delete')) {
-            return { rows: [], rowsAffected: 1 }
-        }
-
-        // Fallback - return empty (route should be refactored)
-        console.warn('[supabase.execute] Raw SQL not fully supported, refactor route:', sql.substring(0, 100))
-        return { rows: [], rowsAffected: 0 }
-    },
 }
 
 // ============================================================================

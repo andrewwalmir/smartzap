@@ -2,6 +2,8 @@
  * T020: GET /api/inbox/conversations - List conversations with filters
  */
 
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { listConversations } from '@/lib/inbox/inbox-service'

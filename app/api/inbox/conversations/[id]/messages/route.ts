@@ -2,6 +2,8 @@
  * T023, T024: GET/POST /api/inbox/conversations/[id]/messages
  */
 
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { listMessages, sendMessage } from '@/lib/inbox/inbox-service'

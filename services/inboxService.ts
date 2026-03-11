@@ -84,7 +84,7 @@ async function listConversations(params: ConversationListParams = {}): Promise<C
   if (params.labelId) searchParams.set('label_id', params.labelId)
   if (params.search) searchParams.set('search', params.search)
 
-  const response = await fetch(`/api/inbox/conversations?${searchParams.toString()}`)
+  const response = await fetch(`/api/inbox/conversations?${searchParams.toString()}`, { cache: 'no-store' })
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Failed to fetch conversations' }))
     throw new Error(error.error || 'Failed to fetch conversations')
@@ -93,7 +93,7 @@ async function listConversations(params: ConversationListParams = {}): Promise<C
 }
 
 async function getConversation(id: string): Promise<InboxConversation> {
-  const response = await fetch(`/api/inbox/conversations/${id}`)
+  const response = await fetch(`/api/inbox/conversations/${id}`, { cache: 'no-store' })
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Failed to fetch conversation' }))
     throw new Error(`${response.status}: ${error.error || 'Failed to fetch conversation'}`)
@@ -143,7 +143,7 @@ async function listMessages(conversationId: string, params: MessageListParams = 
   if (params.before) searchParams.set('before', params.before)
   if (params.limit) searchParams.set('limit', String(params.limit))
 
-  const response = await fetch(`/api/inbox/conversations/${conversationId}/messages?${searchParams.toString()}`)
+  const response = await fetch(`/api/inbox/conversations/${conversationId}/messages?${searchParams.toString()}`, { cache: 'no-store' })
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Failed to fetch messages' }))
     throw new Error(error.error || 'Failed to fetch messages')
