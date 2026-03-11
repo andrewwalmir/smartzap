@@ -25,7 +25,7 @@ function isPublicApiRoute(pathname: string) {
     )
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl
 
     // Protege apenas as rotas da API
