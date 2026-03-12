@@ -11,6 +11,26 @@ export type WhatsAppWebhookStatusUpdate = {
   errors?: any
 }
 
+const STATUS_SUCCESS_RANK: Record<string, number> = {
+  pending: 0,
+  failed: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+}
+
+function getStatusSuccessRank(status: unknown): number {
+  return STATUS_SUCCESS_RANK[String(status || '').trim().toLowerCase()] ?? 0
+}
+
+function canPromoteStatus(currentStatus: unknown, nextStatus: WhatsAppStatus): boolean {
+  if (nextStatus === 'failed') {
+    return getStatusSuccessRank(currentStatus) < getStatusSuccessRank('delivered')
+  }
+
+  return getStatusSuccessRank(nextStatus) > getStatusSuccessRank(currentStatus)
+}
+
 export function normalizeMetaStatus(input: unknown): WhatsAppStatus | null {
   const s = String(input || '').trim().toLowerCase()
   if (!s) return null
@@ -189,24 +209,35 @@ export async function applyStatusUpdateToCampaignContact(input: {
   const traceId = (existing as any)?.trace_id ?? null
   const phone = (existing as any)?.phone ?? null
 
-  const statusOrder: Record<string, number> = { pending: 0, sent: 1, delivered: 2, read: 3, failed: 4 }
-  const currentOrder = statusOrder[String(existing.status || 'pending')] ?? 0
-  const newOrder = statusOrder[input.status] ?? 0
-
-  // Skip if not advancing (except failed)
-  if (newOrder <= currentOrder && input.status !== 'failed') {
+  if (!canPromoteStatus(existing.status, input.status)) {
     return { applied: false, reason: 'noop', campaignId, campaignContactId: existing.id, traceId, phone }
   }
 
   const ts = input.eventTsIso || new Date().toISOString()
+
+  if (input.status === 'sent') {
+    const { data: updatedRowsSent, error: updateErrorSent } = await supabase
+      .from('campaign_contacts')
+      .update({ status: 'sent' })
+      .eq('message_id', input.messageId)
+      .in('status', ['pending', 'failed'])
+      .select('id')
+
+    if (updateErrorSent) throw updateErrorSent
+
+    if (updatedRowsSent && updatedRowsSent.length > 0) {
+      return { applied: true, reason: 'applied', campaignId, campaignContactId: existing.id, traceId, phone }
+    }
+
+    return { applied: false, reason: 'noop', campaignId, campaignContactId: existing.id, traceId, phone }
+  }
 
   if (input.status === 'delivered') {
     const { data: updatedRows, error: updateError } = await supabase
       .from('campaign_contacts')
       .update({ status: 'delivered', delivered_at: ts })
       .eq('message_id', input.messageId)
-      .neq('status', 'delivered')
-      .neq('status', 'read')
+      .in('status', ['pending', 'sent', 'failed'])
       .select('id')
 
     if (updateError) throw updateError
@@ -228,7 +259,7 @@ export async function applyStatusUpdateToCampaignContact(input: {
       .from('campaign_contacts')
       .update({ status: 'read', read_at: ts })
       .eq('message_id', input.messageId)
-      .neq('status', 'read')
+      .in('status', ['pending', 'sent', 'delivered', 'failed'])
       .select('id')
 
     if (updateErrorRead) throw updateErrorRead
@@ -292,7 +323,7 @@ export async function applyStatusUpdateToCampaignContact(input: {
         failure_href: errorHref,
       })
       .eq('message_id', input.messageId)
-      .neq('status', 'failed')
+      .in('status', ['pending', 'sent', 'failed'])
       .select('id')
 
     if (updateErrorFailed) throw updateErrorFailed
