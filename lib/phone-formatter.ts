@@ -204,12 +204,13 @@ export function normalizePhoneNumber(
     try {
       const parsed = parsePhoneNumber(cleaned);
       if (parsed && parsed.isValid()) {
-        return parsed.number;
+        return ensureBrazilian9thDigit(parsed.number);
       }
     } catch {
       // Se falhar, retorna como está (melhor que perder dados)
     }
-    return cleaned;
+    // Mesmo sem parse válido, tenta corrigir o nono dígito BR
+    return ensureBrazilian9thDigit(cleaned);
   }
 
   // 2. Se começa com '00' (prefixo de discagem internacional)
@@ -220,7 +221,7 @@ export function normalizePhoneNumber(
     try {
       const parsed = parsePhoneNumber(asInternational);
       if (parsed && parsed.isPossible()) {
-        return parsed.number;
+        return ensureBrazilian9thDigit(parsed.number);
       }
     } catch {
       // Se falhar, continua com o número sem o prefixo 00
@@ -238,11 +239,13 @@ export function normalizePhoneNumber(
       // Usa isPossible() ao invés de isValid() para ser mais permissivo
       // isValid() pode rejeitar números válidos que não estão no metadata
       if (parsed && parsed.isPossible()) {
-        return parsed.number;
+        return ensureBrazilian9thDigit(parsed.number);
       }
     } catch {
       // Continua para fallback
     }
+    // Fallback: tenta corrigir nono dígito BR mesmo sem parse
+    return ensureBrazilian9thDigit(asInternational);
   }
 
   // 4. Números com 10-11 dígitos: assume Brasil (celular ou fixo)
@@ -251,20 +254,20 @@ export function normalizePhoneNumber(
     try {
       const parsed = parsePhoneNumber(cleaned, defaultCountry);
       if (parsed && parsed.isValid()) {
-        return parsed.number;
+        return ensureBrazilian9thDigit(parsed.number);
       }
     } catch {
       // Fallback manual
     }
     // Fallback: adiciona +55 diretamente
-    return '+55' + cleaned;
+    return ensureBrazilian9thDigit('+55' + cleaned);
   }
 
   // 5. Fallback geral: tenta com país padrão
   try {
     const parsed = parsePhoneNumber(cleaned, defaultCountry);
     if (parsed) {
-      return parsed.number;
+      return ensureBrazilian9thDigit(parsed.number);
     }
   } catch {
     // Último recurso
@@ -272,6 +275,47 @@ export function normalizePhoneNumber(
 
   // Número com formato desconhecido - retorna com + para não perder dados
   return '+' + cleaned;
+}
+
+/**
+ * Garante que números brasileiros de celular tenham o nono dígito (9).
+ *
+ * O Meta WhatsApp Cloud API às vezes retorna números BR sem o nono dígito
+ * (ex: +554584311898 ao invés de +5545984311898). Isso causa mismatch no
+ * lookup de conversas do inbox.
+ *
+ * Regra: Se é BR (+55), DDD (2 dígitos), e o número local tem 8 dígitos
+ * começando com [6-9] (indicando celular), adiciona o 9.
+ *
+ * Exemplos:
+ *   +554584311898  → +5545984311898  (adiciona 9)
+ *   +5545984311898 → +5545984311898  (já tem, não muda)
+ *   +551133334444  → +551133334444   (fixo, não muda)
+ *   +14155552671   → +14155552671    (não é BR, não muda)
+ */
+function ensureBrazilian9thDigit(phone: string): string {
+  // Só aplica para números brasileiros (+55)
+  if (!phone.startsWith('+55')) return phone;
+
+  // Remove o +55 para analisar o restante
+  const afterCountryCode = phone.slice(3); // DDD + número local
+
+  // Formato esperado: DDD(2) + número(8 ou 9 dígitos) = 10 ou 11 dígitos
+  // Se tem 10 dígitos (DDD + 8 dígitos) e o número local começa com [6-9], falta o 9
+  if (afterCountryCode.length === 10) {
+    const ddd = afterCountryCode.slice(0, 2);
+    const localNumber = afterCountryCode.slice(2); // 8 dígitos
+
+    // Celulares BR começam com 9[6-9]XXX-XXXX (formato com nono dígito)
+    // Sem o nono dígito: [6-9]XXX-XXXX
+    // Fixos começam com [2-5], não precisam do nono dígito
+    const firstDigit = localNumber[0];
+    if (firstDigit && ['6', '7', '8', '9'].includes(firstDigit)) {
+      return `+55${ddd}9${localNumber}`;
+    }
+  }
+
+  return phone;
 }
 
 /**
