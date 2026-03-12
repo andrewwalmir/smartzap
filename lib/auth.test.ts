@@ -220,8 +220,8 @@ describe('auth', () => {
       expect(isPublicEndpoint('/api/webhook')).toBe(true)
       expect(isPublicEndpoint('/api/health')).toBe(true)
       expect(isPublicEndpoint('/api/system')).toBe(true)
-      expect(isPublicEndpoint('/api/flows')).toBe(true)
       expect(isPublicEndpoint('/api/flow-engine')).toBe(true)
+      expect(isPublicEndpoint('/api/flows/endpoint')).toBe(true)
       expect(isPublicEndpoint('/api/campaign/dispatch')).toBe(true)
     })
 
@@ -234,7 +234,7 @@ describe('auth', () => {
 
     it('deve reconhecer sub-paths de endpoints publicos', () => {
       expect(isPublicEndpoint('/api/webhook/validate')).toBe(true)
-      expect(isPublicEndpoint('/api/flows/send')).toBe(true)
+      expect(isPublicEndpoint('/api/flow-engine/run')).toBe(true)
     })
   })
 
@@ -307,8 +307,9 @@ describe('auth', () => {
     })
 
     it('PUBLIC_ENDPOINTS deve conter pelo menos os endpoints documentados', () => {
-      expect(PUBLIC_ENDPOINTS).toContain('/api/webhook')
+      expect(PUBLIC_ENDPOINTS).toContain('/api/webhook/*')
       expect(PUBLIC_ENDPOINTS).toContain('/api/health')
+      expect(PUBLIC_ENDPOINTS).toContain('/api/flows/endpoint')
       expect(PUBLIC_ENDPOINTS.length).toBeGreaterThanOrEqual(4)
     })
 

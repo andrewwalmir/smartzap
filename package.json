@@ -1,5 +1,5 @@
 {
-  "name": "smartzap-saas",
+  "name": "hangarzap",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -12,13 +12,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint app components hooks lib services scripts utils --ext .js,.jsx,.ts,.tsx,.mjs,.cjs",
+    "typecheck": "tsc --noEmit",
     "whatsapp:context": "tsx scripts/build-whatsapp-context.ts",
     "schema:parity": "tsx scripts/schema-parity-check.ts",
     "schema:baseline:generate": "tsx scripts/generate-baseline-from-fullchain.ts",
     "db:migrate:0020": "node scripts/apply-migration-pg.mjs supabase/migrations/20260225000002_add_get_contact_tag_counts.sql",
     "db:migrate:0018": "node scripts/apply-migration-pg.mjs supabase/migrations/20260225000001_fix_nested_tags_and_stats.sql",
-    "logs:follow:prod": "node scripts/vercel-logs-follow.mjs https://smartzap-eta.vercel.app tmp/vercel-logs-follow.jsonl",
-    "monitor:all": "node scripts/monitor-all.mjs --vercel-url https://smartzap-eta.vercel.app --qstash-url https://smartzap-eta.vercel.app/api/campaign/workflow",
+    "logs:follow:prod": "node scripts/vercel-logs-follow.mjs",
+    "monitor:all": "node scripts/monitor-all.mjs",
     "builder:smoke": "tsx scripts/builder-smoke.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -31,7 +32,7 @@
     "test:all": "npm run test && npm run test:e2e",
     "test:stress": "tsx tests/stress/run-stress-test.ts",
     "test:stress:local": "tsx tests/stress/run-stress-test.ts --target=http://localhost:3000/api/webhook",
-    "test:stress:prod": "tsx tests/stress/run-stress-test.ts --target=https://smartzap-eta.vercel.app/api/webhook",
+    "test:stress:prod": "tsx tests/stress/run-stress-test.ts",
     "test:e2e:whatsapp": "vitest run tests/e2e-whatsapp/scenarios",
     "test:e2e:whatsapp:watch": "vitest watch tests/e2e-whatsapp/scenarios",
     "test:ai:api": "vitest run tests/api-ai/scenarios",
@@ -169,5 +170,8 @@
   },
   "overrides": {
     "jsondiffpatch": "^0.7.2"
+  },
+  "volta": {
+    "node": "20.20.1"
   }
 }

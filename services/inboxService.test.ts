@@ -20,7 +20,10 @@ describe('inboxService', () => {
 
     await inboxService.listConversations({ page: 2, limit: 10, status: 'open', search: 'ana' } as any)
 
-    expect(mockFetch).toHaveBeenCalledWith('/api/inbox/conversations?page=2&limit=10&status=open&search=ana')
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/inbox/conversations?page=2&limit=10&status=open&search=ana',
+      { cache: 'no-store' },
+    )
   })
 
   it('getConversation deve lançar erro com status', async () => {
