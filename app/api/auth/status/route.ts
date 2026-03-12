@@ -18,6 +18,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   try {
     const isProd = process.env.NODE_ENV === 'production'
+    const showLocalDevSetupHint = !isProd
     const log = (...args: any[]) => {
       if (!isProd) console.log(...args)
     }
@@ -33,6 +34,7 @@ export async function GET() {
       log('🔍 [AUTH-STATUS] Not configured, returning early')
       return NextResponse.json({
         isConfigured: false,
+        showLocalDevSetupHint,
         debug_master_password_exists: !!process.env.MASTER_PASSWORD,
         debug_vercel_token_exists: !!process.env.VERCEL_TOKEN,
         isSetup: false,
@@ -47,6 +49,7 @@ export async function GET() {
 
     const response = {
       isConfigured: true,
+      showLocalDevSetupHint: false,
       isSetup: status.isSetup,
       isAuthenticated: status.isAuthenticated,
       company: status.company

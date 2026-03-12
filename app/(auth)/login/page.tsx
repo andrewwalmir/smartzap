@@ -10,6 +10,14 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Lock, Eye, EyeOff, LogIn } from 'lucide-react'
 
+type AuthStatusResponse = {
+  isConfigured: boolean
+  isSetup: boolean
+  isAuthenticated: boolean
+  company: { name?: string } | null
+  showLocalDevSetupHint?: boolean
+}
+
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -20,28 +28,22 @@ function LoginForm() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [companyName, setCompanyName] = useState('')
-  const [isLocalhost, setIsLocalhost] = useState(false)
   const [isConfigured, setIsConfigured] = useState(true)
+  const [showLocalDevSetupHint, setShowLocalDevSetupHint] = useState(false)
 
   useEffect(() => {
-    try {
-      const host = window.location.hostname
-      setIsLocalhost(host === 'localhost' || host === '127.0.0.1' || host === '::1')
-    } catch {
-      setIsLocalhost(false)
-    }
-
     // Get company name from auth status
     fetch('/api/auth/status')
       .then(res => {
         return res.json()
       })
-      .then(async (data) => {
+      .then(async (data: AuthStatusResponse) => {
+        setShowLocalDevSetupHint(Boolean(data.showLocalDevSetupHint && !data.isConfigured))
         if (!data.isConfigured) {
           setIsConfigured(false)
 
           // Em localhost, não forçamos o fluxo da Vercel. Mostramos instrução para configurar .env.local.
-          if (isLocalhost) {
+          if (data.showLocalDevSetupHint) {
             setError('Configuração local incompleta: defina MASTER_PASSWORD no .env.local e reinicie o servidor (npm run dev).')
             return
           }
@@ -53,13 +55,13 @@ function LoginForm() {
         } else if (data.isAuthenticated) {
           router.push('/')
         } else if (data.company) {
-          setCompanyName(data.company.name)
+          setCompanyName(data.company.name || 'HangarZap')
         }
       })
       .catch((err) => {
         console.error('🔍 [LOGIN] Auth status error:', err)
       })
-  }, [router, isLocalhost])
+  }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -111,7 +113,7 @@ function LoginForm() {
 
       {/* Card */}
       <div className="bg-[var(--ds-bg-elevated)] border border-[var(--ds-border-default)] rounded-2xl p-6 shadow-xl">
-        {!isConfigured && isLocalhost && (
+        {!isConfigured && showLocalDevSetupHint && (
           <div className="mb-4 bg-[var(--ds-status-success-bg)] border border-[var(--ds-status-success)]/20 rounded-xl p-4">
             <p className="text-sm text-[var(--ds-status-success-text)] font-medium">Modo local</p>
             <p className="text-xs text-[var(--ds-text-secondary)] mt-1">
@@ -148,7 +150,7 @@ function LoginForm() {
 
           <button
             type="submit"
-            disabled={isLoading || (!isConfigured && isLocalhost)}
+            disabled={isLoading || (!isConfigured && showLocalDevSetupHint)}
             className="w-full mt-6 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             {isLoading ? (
