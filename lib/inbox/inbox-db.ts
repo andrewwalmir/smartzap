@@ -8,6 +8,7 @@
  */
 
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { normalizePhoneNumber } from '@/lib/phone-formatter'
 import type {
   InboxConversation,
   InboxMessage,
@@ -162,6 +163,9 @@ export async function findConversationByPhone(
 ): Promise<InboxConversation | null> {
   const supabase = getClient()
 
+  // Normaliza para E.164 — consistência com getOrCreateConversation
+  const normalizedPhone = normalizePhoneNumber(phone) || phone
+
   // Find the most recent conversation for this phone
   const { data, error } = await supabase
     .from('inbox_conversations')
@@ -173,15 +177,16 @@ export async function findConversationByPhone(
       ),
       ai_agent:ai_agents(*)
     `)
-    .eq('phone', phone)
+    .eq('phone', normalizedPhone)
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   if (error) {
-    if (error.code === 'PGRST116') return null // Not found
     throw new Error(`Failed to find conversation: ${error.message}`)
   }
+
+  if (!data) return null
 
   // Transform labels
   return {
@@ -209,6 +214,9 @@ export async function findConversationByPhoneLightweight(
 > | null> {
   const supabase = getClient()
 
+  // Normaliza para E.164 — mesmo formato usado por getOrCreateConversation e pelo webhook
+  const normalizedPhone = normalizePhoneNumber(phone) || phone
+
   // Query direta sem JOINs - usa índice idx_inbox_conversations_phone_status
   const { data, error } = await supabase
     .from('inbox_conversations')
@@ -224,21 +232,24 @@ export async function findConversationByPhoneLightweight(
       total_messages,
       unread_count
     `)
-    .eq('phone', phone)
+    .eq('phone', normalizedPhone)
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   if (error) {
-    if (error.code === 'PGRST116') return null // Not found
     throw new Error(`Failed to find conversation: ${error.message}`)
   }
 
-  return data
+  return data ?? null
 }
 
 /**
  * Get or create a conversation by phone number
+ *
+ * FIX: Normaliza telefone para E.164 antes de buscar/criar para evitar
+ * conversas duplicadas por diferença de formato (ex: 5545... vs +5545...).
+ * Usa .limit(1) ao invés de .single() para não falhar se já existirem duplicatas.
  */
 export async function getOrCreateConversation(
   phone: string,
@@ -247,14 +258,21 @@ export async function getOrCreateConversation(
 ): Promise<InboxConversation> {
   const supabase = getClient()
 
+  // Normaliza para E.164 — garante consistência entre outbound (campaign) e inbound (webhook)
+  const normalizedPhone = normalizePhoneNumber(phone) || phone
+
   // Try to find existing open conversation
-  const { data: existing } = await supabase
+  // Usa .limit(1) + .order() ao invés de .single() para evitar erro quando
+  // já existem múltiplas conversas abertas para o mesmo telefone (duplicatas prévias)
+  const { data: rows } = await supabase
     .from('inbox_conversations')
     .select('*')
-    .eq('phone', phone)
+    .eq('phone', normalizedPhone)
     .eq('status', 'open')
-    .single()
+    .order('last_message_at', { ascending: false, nullsFirst: false })
+    .limit(1)
 
+  const existing = rows?.[0]
   if (existing) {
     return existing as InboxConversation
   }
@@ -276,11 +294,11 @@ export async function getOrCreateConversation(
   // If no agent exists, default to 'human' mode (manual attendance)
   const mode = agentId ? 'bot' : 'human'
 
-  // Create new conversation
+  // Create new conversation (usa normalizedPhone para consistência E.164)
   const { data, error } = await supabase
     .from('inbox_conversations')
     .insert({
-      phone,
+      phone: normalizedPhone,
       contact_id: contactId,
       ai_agent_id: agentId,
       status: 'open',
