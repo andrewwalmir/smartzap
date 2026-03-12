@@ -7,30 +7,13 @@ import { getVerifyToken } from '@/lib/verify-token'
 const META_API_VERSION = 'v24.0'
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`
 
+import { getAppWebhookUrl } from '@/lib/app-url'
+
 /**
  * Computa a URL do webhook do SmartZap baseado no ambiente.
- * Prioridade: NEXT_PUBLIC_APP_URL (domínio customizado) > Vercel auto-detected > localhost
  */
 function computeWebhookUrl(): string {
-  // 1. Domínio customizado explícito tem prioridade máxima
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    const base = process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/+$/, '')
-    return `${base}/api/webhook`
-  }
-
-  const vercelEnv = process.env.VERCEL_ENV || null
-
-  // 2. URL de produção da Vercel (auto-detected)
-  if (vercelEnv === 'production' && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.trim()}/api/webhook`
-  }
-
-  // 3. URL da Vercel (preview/dev)
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL.trim()}/api/webhook`
-  }
-
-  return 'http://localhost:3000/api/webhook'
+  return getAppWebhookUrl()
 }
 
 /**

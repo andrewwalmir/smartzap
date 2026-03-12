@@ -281,23 +281,13 @@ function buildSupportPacketText(params: {
 	return lines.join('\n')
 }
 
+import { getAppWebhookUrl } from '@/lib/app-url'
+
 function computeWebhookUrl(): { webhookUrl: string; vercelEnv: string | null } {
-	let webhookUrl: string
-	const vercelEnv = process.env.VERCEL_ENV || null
-
-	// Domínio customizado explícito tem prioridade máxima
-	if (process.env.NEXT_PUBLIC_APP_URL) {
-		const base = process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/+$/, '')
-		webhookUrl = `${base}/api/webhook`
-	} else if (vercelEnv === 'production' && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-		webhookUrl = `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.trim()}/api/webhook`
-	} else if (process.env.VERCEL_URL) {
-		webhookUrl = `https://${process.env.VERCEL_URL.trim()}/api/webhook`
-	} else {
-		webhookUrl = 'http://localhost:3000/api/webhook'
+	return {
+		webhookUrl: getAppWebhookUrl(),
+		vercelEnv: process.env.VERCEL_ENV || null,
 	}
-
-	return { webhookUrl, vercelEnv }
 }
 
 async function graphGet(

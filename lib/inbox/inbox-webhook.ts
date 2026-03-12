@@ -11,6 +11,7 @@
  */
 
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { getAppBaseUrl } from '@/lib/app-url'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
 import { inboxDb, isHumanModeExpired, switchToBotMode, findConversationByPhoneLightweight } from './inbox-db'
 import { cancelDebounce } from '@/lib/ai/agents/chat-agent'
@@ -337,14 +338,8 @@ async function dispatchToQStash(
   const qstash = getQStashClient()
   if (!qstash) return false
 
-  // URL do endpoint - prioridade para variáveis de produção da Vercel
-  // VERCEL_PROJECT_PRODUCTION_URL sempre retorna o domínio customizado em produção
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL &&
-      `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`) ||
-    (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`) ||
-    'http://localhost:3000'
+  // URL do endpoint - centralizado em lib/app-url.ts
+  const baseUrl = getAppBaseUrl()
 
   const aiRespondUrl = `${baseUrl}/api/ai/respond`
 

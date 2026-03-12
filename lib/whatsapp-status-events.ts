@@ -39,12 +39,10 @@ export function buildStatusEventDedupeKey(input: {
   return `${input.messageId}:${input.status}:${ts}`
 }
 
+import { getAppBaseUrlOrNull } from '@/lib/app-url'
+
 function getBaseUrl(): string | null {
-  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim()
-  if (explicit) return explicit
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim()) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.trim()}`
-  if (process.env.VERCEL_URL?.trim()) return `https://${process.env.VERCEL_URL.trim()}`
-  return null
+  return getAppBaseUrlOrNull()
 }
 
 function getReconcileSecret(): string | null {

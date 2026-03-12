@@ -5,17 +5,11 @@ import { settingsDb } from '@/lib/supabase-db'
 const ENDPOINT_URL_SETTING = 'whatsapp_flow_endpoint_url'
 const PUBLIC_KEY_SETTING = 'whatsapp_flow_public_key'
 
+import { getAppBaseUrlOrNull } from '@/lib/app-url'
+
 function buildEndpointUrl(): string | null {
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/api/flows/endpoint`
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}/api/flows/endpoint`
-  }
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return `${process.env.NEXT_PUBLIC_APP_URL}/api/flows/endpoint`
-  }
-  return null
+  const base = getAppBaseUrlOrNull()
+  return base ? `${base}/api/flows/endpoint` : null
 }
 
 export async function GET() {

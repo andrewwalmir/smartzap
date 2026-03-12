@@ -1,4 +1,5 @@
 import { serve } from '@upstash/workflow/nextjs'
+import { getAppBaseUrl } from '@/lib/app-url'
 import { campaignDb, templateDb } from '@/lib/supabase-db'
 import { supabase } from '@/lib/supabase'
 import { CampaignStatus, ContactStatus } from '@/types'
@@ -2584,19 +2585,15 @@ const workflowHandler = serve<CampaignWorkflowInput>(
     // Se ele apontar para produção, o workflow começa no preview mas continua
     // executando passos em outro deployment (clássico: "turbo não muda nada" e
     // métricas não aparecem no lugar esperado).
+    // Preview: usa VERCEL_URL do deploy atual para evitar cross-deploy.
+    // Produção: domínio estável via getAppBaseUrl().
     baseUrl: (() => {
-      const vercelEnv = (process.env.VERCEL_ENV || '').trim() // 'production' | 'preview' | 'development'
-      const deploymentUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL.trim()}` : undefined
-      const productionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
-        ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.trim()}`
-        : undefined
-      const explicitAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || undefined
-
+      const vercelEnv = (process.env.VERCEL_ENV || '').trim()
       if (vercelEnv && vercelEnv !== 'production') {
+        const deploymentUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL.trim()}` : undefined
         return deploymentUrl
       }
-
-      return explicitAppUrl || productionUrl || deploymentUrl
+      return getAppBaseUrl()
     })(),
   }
 )

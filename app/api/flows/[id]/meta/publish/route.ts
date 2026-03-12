@@ -5,6 +5,7 @@ import crypto from 'crypto'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+import { getAppBaseUrlOrNull } from '@/lib/app-url'
 import { supabase } from '@/lib/supabase'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import {
@@ -61,17 +62,13 @@ async function getFlowEndpointUrl(): Promise<string | null> {
   const privateKey = await settingsDb.get('whatsapp_flow_private_key')
   if (!privateKey) return null
 
-  // 1. NEXT_PUBLIC_APP_URL (pode ser URL de túnel em dev)
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return `${process.env.NEXT_PUBLIC_APP_URL}/api/flows/endpoint`
+  // 1. Centralizado: NEXT_PUBLIC_APP_URL > VERCEL_PROJECT_PRODUCTION_URL > VERCEL_URL
+  const appBase = getAppBaseUrlOrNull()
+  if (appBase) {
+    return `${appBase}/api/flows/endpoint`
   }
 
-  // 2. Env vars (producao/preview Vercel)
-  const envEndpointUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/api/flows/endpoint`
-    : process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}/api/flows/endpoint`
-      : null
+  const envEndpointUrl: string | null = null
 
   // 3. Fallback: URL salva no banco
   const storedEndpointUrl = await settingsDb.get(ENDPOINT_URL_SETTING)

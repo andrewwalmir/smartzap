@@ -8,6 +8,7 @@
 
 import { NextResponse } from 'next/server'
 import { settingsDb } from '@/lib/supabase-db'
+import { getAppBaseUrlOrNull } from '@/lib/app-url'
 import { isSupabaseConfigured } from '@/lib/supabase'
 import {
   generateKeyPair,
@@ -53,13 +54,8 @@ export async function GET(request: Request) {
 
     const hasPrivateKey = !!privateKey && isValidPrivateKey(privateKey)
     const hasPublicKey = !!publicKey
-    const envEndpointUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/api/flows/endpoint`
-      : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}/api/flows/endpoint`
-        : process.env.NEXT_PUBLIC_APP_URL
-          ? `${process.env.NEXT_PUBLIC_APP_URL}/api/flows/endpoint`
-          : null
+    const _appBase = getAppBaseUrlOrNull()
+    const envEndpointUrl = _appBase ? `${_appBase}/api/flows/endpoint` : null
     const headerEndpointUrl = resolveEndpointUrlFromRequest(request)
     const safeStoredEndpointUrl =
       storedEndpointUrl && !isLocalhostUrl(headerEndpointUrl) && isLocalhostUrl(storedEndpointUrl)

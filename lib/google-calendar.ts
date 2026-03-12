@@ -62,18 +62,10 @@ export type GoogleCalendarCredentialsPublic = {
   isConfigured: boolean
 }
 
+import { getAppBaseUrl } from '@/lib/app-url'
+
 function getBaseUrl(): string {
-  const vercelEnv = process.env.VERCEL_ENV || null
-  if (vercelEnv === 'production' && process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.trim()}`
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL.trim()}`
-  }
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL.trim()
-  }
-  return 'http://localhost:3000'
+  return getAppBaseUrl()
 }
 
 export function getGoogleCalendarRedirectUri(): string {

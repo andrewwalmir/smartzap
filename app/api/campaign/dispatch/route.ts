@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Client } from '@upstash/workflow'
+import { getAppBaseUrl } from '@/lib/app-url'
 import { getWhatsAppCredentials } from '@/lib/whatsapp-credentials'
 import { supabase } from '@/lib/supabase'
 import { templateDb } from '@/lib/supabase-db'
@@ -948,24 +949,15 @@ export async function POST(request: NextRequest) {
     //   Caso contrário, acabamos chamando produção (versão/config diferente) e o usuário
     //   vê “turbo não muda nada” porque o envio real está rodando em outro deployment.
     // - Em produção, ainda faz sentido usar um domínio estável (quando configurado).
-    const explicitAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || null
     const requestOrigin = getRequestOrigin(request)
-
-    const vercelEnv = (process.env.VERCEL_ENV || '').trim() // 'production' | 'preview' | 'development'
-    const productionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.trim()}`
-      : null
-    const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL.trim()}` : null
+    const vercelEnv = (process.env.VERCEL_ENV || '').trim()
     const isDev = process.env.NODE_ENV === 'development'
 
-    // Regra de ouro:
-    // - preview/dev: sempre preferir o origin do request para garantir que o workflow
-    //   rode no MESMO deployment que gerou a fila (evita chamar produção por engano).
-    // - produção: pode usar um domínio estável (NEXT_PUBLIC_APP_URL), caso exista.
-    // - dev local com túnel: configure NEXT_PUBLIC_APP_URL com a URL do túnel (ex: Cloudflare Tunnel)
+    // Produção: domínio estável via getAppBaseUrl (NEXT_PUBLIC_APP_URL > VERCEL_PROJECT_PRODUCTION_URL)
+    // Preview/dev: prefer requestOrigin para evitar cross-deploy, fallback para getAppBaseUrl
     const baseUrl = (vercelEnv === 'production')
-      ? (explicitAppUrl || productionUrl || vercelUrl || requestOrigin || 'http://localhost:3000')
-      : (explicitAppUrl || requestOrigin || vercelUrl || productionUrl || 'http://localhost:3000')
+      ? getAppBaseUrl()
+      : (requestOrigin || getAppBaseUrl())
 
     const isLocalhost = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')
 
