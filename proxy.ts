@@ -7,6 +7,7 @@ import {
     unauthorizedResponse,
     forbiddenResponse
 } from '@/lib/auth'
+import { getSessionCookieValue } from '@/lib/branding'
 
 export const config = {
     matcher: [
@@ -35,7 +36,7 @@ export async function proxy(request: NextRequest) {
 
     // Session cookie can exist even when SETUP_COMPLETE env isn't set (dev/local).
     // If the user has a valid session, we should not force them back into the setup wizard.
-    const sessionCookie = request.cookies.get('smartzap_session')
+    const sessionCookieValue = getSessionCookieValue(request.cookies)
 
     // Handle OPTIONS requests for CORS preflight.
     // Alguns scripts (ex.: Vercel feedback/toolbar) disparam OPTIONS/HEAD mesmo em páginas.
@@ -77,7 +78,7 @@ export async function proxy(request: NextRequest) {
     if (shouldLockInstaller && (isInstallerPage || isInstallerApi)) {
         // Para páginas: exige sessão (login)
         if (isInstallerPage) {
-            if (!sessionCookie?.value) {
+            if (!sessionCookieValue) {
                 const loginUrl = new URL('/login', request.url)
                 loginUrl.searchParams.set('reason', 'installer_locked')
                 loginUrl.searchParams.set('redirect', pathname)
@@ -87,7 +88,7 @@ export async function proxy(request: NextRequest) {
 
         // Para APIs: permite sessão OU admin key
         if (isInstallerApi) {
-            if (sessionCookie?.value) {
+            if (sessionCookieValue) {
                 return NextResponse.next()
             }
 
@@ -145,7 +146,7 @@ export async function proxy(request: NextRequest) {
         }
 
         // Check for user session cookie (for browser API calls)
-        if (sessionCookie?.value) {
+        if (sessionCookieValue) {
             // Session exists, allow request (validation happens in API route)
             return NextResponse.next()
         }
@@ -170,7 +171,7 @@ export async function proxy(request: NextRequest) {
     }
 
     // No session cookie - redirect to login
-    if (!sessionCookie?.value) {
+    if (!sessionCookieValue) {
         const loginUrl = new URL('/login', request.url)
         loginUrl.searchParams.set('redirect', pathname)
         return NextResponse.redirect(loginUrl)

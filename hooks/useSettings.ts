@@ -23,6 +23,7 @@ import { DEFAULT_WEBHOOK_PATH } from '../lib/business/settings';
 import { Zap, MessageSquare } from 'lucide-react';
 import React from 'react';
 import { SetupStep } from '../components/features/settings/SetupWizardView';
+import { LEGACY_LIMITS_STORAGE_KEY, LIMITS_STORAGE_KEY, removeLocalStorageItem } from '../lib/branding';
 
 /**
  * Meta webhook subscription status.
@@ -267,7 +268,7 @@ export const useSettingsController = () => {
       // Invalida allSettings para atualizar isConnected na UI
       queryClient.invalidateQueries({ queryKey: ['allSettings'] });
       // Limpa cache e re-verifica limites com novo token
-      localStorage.removeItem('smartzap_account_limits');
+      removeLocalStorageItem(LIMITS_STORAGE_KEY, [LEGACY_LIMITS_STORAGE_KEY]);
       queryClient.invalidateQueries({ queryKey: ['account-limits'] });
       toast.success('Configuração salva com sucesso!');
     },

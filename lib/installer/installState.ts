@@ -4,6 +4,13 @@
  *
  * Adaptado do CRM para SmartZap - inclui steps para QStash e Redis.
  */
+import {
+  INSTALL_STATE_STORAGE_KEY,
+  LEGACY_INSTALL_STATE_STORAGE_KEY,
+  getLocalStorageItem,
+  removeLocalStorageItem,
+  setLocalStorageItem,
+} from '../branding';
 
 export interface InstallStep {
   id: string;
@@ -32,7 +39,7 @@ export interface InstallState {
   error?: string;
 }
 
-const STORAGE_KEY = 'smartzap_install_state';
+const STORAGE_KEY = INSTALL_STATE_STORAGE_KEY;
 const STATE_VERSION = 1;
 const MAX_RETRY_COUNT = 3;
 
@@ -50,7 +57,7 @@ export function loadInstallState(): InstallState | null {
   if (typeof window === 'undefined') return null;
 
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = getLocalStorageItem(STORAGE_KEY, [LEGACY_INSTALL_STATE_STORAGE_KEY]);
     if (!raw) return null;
 
     const state = JSON.parse(raw) as InstallState;
@@ -85,7 +92,7 @@ export function saveInstallState(state: InstallState): void {
 
   try {
     state.lastUpdatedAt = Date.now();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    setLocalStorageItem(STORAGE_KEY, JSON.stringify(state), [LEGACY_INSTALL_STATE_STORAGE_KEY]);
   } catch (err) {
     console.error('[installState] Failed to save state:', err);
   }
@@ -96,7 +103,7 @@ export function saveInstallState(state: InstallState): void {
  */
 export function clearInstallState(): void {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem(STORAGE_KEY);
+  removeLocalStorageItem(STORAGE_KEY, [LEGACY_INSTALL_STATE_STORAGE_KEY]);
 }
 
 /**

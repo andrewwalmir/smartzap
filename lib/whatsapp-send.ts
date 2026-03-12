@@ -7,6 +7,7 @@ import { getWhatsAppCredentials, type WhatsAppCredentials } from '@/lib/whatsapp
 import { buildTextMessage } from '@/lib/whatsapp/text'
 import { fetchWithTimeout, safeJson, safeText } from '@/lib/server-http'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
+import { generateFlowToken } from '@/lib/branding'
 
 export interface SendWhatsAppMessageOptions {
   to: string
@@ -348,7 +349,7 @@ export async function sendFlowMessage(
   }
 
   // Generate flow token if not provided
-  const flowToken = options.flowToken || `smartzap:${options.flowId}:${Date.now()}`
+  const flowToken = options.flowToken || generateFlowToken(options.flowId)
 
   // Build flow message payload
   const payload: Record<string, unknown> = {

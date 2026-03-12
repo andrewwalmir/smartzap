@@ -19,6 +19,13 @@ import type {
   InstallErrorType,
 } from './types';
 import { EMPTY_INSTALL_DATA, stepValidators, assertNever, DEBUG, SCHEMA_VERSION } from './types';
+import {
+  INSTALL_STATE_STORAGE_KEY,
+  LEGACY_INSTALL_STATE_STORAGE_KEY,
+  getLocalStorageItem,
+  removeLocalStorageItem,
+  setLocalStorageItem,
+} from '../branding';
 
 // =============================================================================
 // HELPERS
@@ -339,7 +346,7 @@ export function isSuccess(state: InstallState): state is {
 // PERSISTÊNCIA (COM SCHEMA VERSIONING)
 // =============================================================================
 
-const STORAGE_KEY = 'smartzap_install_state';
+const STORAGE_KEY = INSTALL_STATE_STORAGE_KEY;
 
 /** Estrutura persistida no localStorage (inclui versão) */
 interface PersistedState {
@@ -358,7 +365,7 @@ export function persistState(state: InstallState): void {
       state,
     };
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    setLocalStorageItem(STORAGE_KEY, JSON.stringify(payload), [LEGACY_INSTALL_STATE_STORAGE_KEY]);
   } catch {
     // localStorage pode não estar disponível
   }
@@ -367,7 +374,7 @@ export function persistState(state: InstallState): void {
 /** Recupera estado do localStorage (com verificação de versão) */
 export function hydrateState(): InstallState | null {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = getLocalStorageItem(STORAGE_KEY, [LEGACY_INSTALL_STATE_STORAGE_KEY]);
     if (!saved) return null;
 
     const payload = JSON.parse(saved) as PersistedState | InstallState;
@@ -405,7 +412,7 @@ export function hydrateState(): InstallState | null {
 /** Limpa estado persistido */
 export function clearPersistedState(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    removeLocalStorageItem(STORAGE_KEY, [LEGACY_INSTALL_STATE_STORAGE_KEY]);
   } catch {
     // Ignora erros
   }

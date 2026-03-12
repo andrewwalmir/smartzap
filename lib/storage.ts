@@ -1,10 +1,12 @@
 import { Campaign, Contact, CampaignStatus, ContactStatus, AppSettings, Message, MessageStatus, Template, TemplateStatus } from '../types';
+import { LEGACY_STORAGE_KEYS, STORAGE_KEYS, getLocalStorageItem, removeLocalStorageItem, setLocalStorageItem } from './branding';
 
-const KEYS = {
-  CAMPAIGNS: 'smartzap_campaigns',
-  CONTACTS: 'smartzap_contacts',
-  SETTINGS: 'smartzap_settings',
-  TEMPLATES: 'smartzap_templates',
+const KEYS = STORAGE_KEYS;
+const LEGACY_KEYS_BY_KEY: Record<string, string[]> = {
+  [KEYS.CAMPAIGNS]: [LEGACY_STORAGE_KEYS.CAMPAIGNS],
+  [KEYS.CONTACTS]: [LEGACY_STORAGE_KEYS.CONTACTS],
+  [KEYS.SETTINGS]: [LEGACY_STORAGE_KEYS.SETTINGS],
+  [KEYS.TEMPLATES]: [LEGACY_STORAGE_KEYS.TEMPLATES],
 };
 
 // Mapa de migração: valores antigos em inglês → novos em português
@@ -26,7 +28,7 @@ const normalizeCampaignStatus = (status: string): CampaignStatus => {
 // Helper to get data from localStorage with a default fallback
 const get = <T>(key: string, defaultVal: T): T => {
   if (typeof window === 'undefined') return defaultVal;
-  const stored = localStorage.getItem(key);
+  const stored = getLocalStorageItem(key, LEGACY_KEYS_BY_KEY[key] || []);
   if (!stored) return defaultVal;
   try {
     return JSON.parse(stored);
@@ -38,7 +40,7 @@ const get = <T>(key: string, defaultVal: T): T => {
 // Helper to save data to localStorage
 const set = (key: string, value: any) => {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(key, JSON.stringify(value));
+  setLocalStorageItem(key, JSON.stringify(value), LEGACY_KEYS_BY_KEY[key] || []);
 };
 
 // Initialize storage - just ensures localStorage keys exist (no mock data)
@@ -68,10 +70,10 @@ export const initStorage = () => {
 
 // Clear all data and reset to empty state (useful for development)
 export const clearAllData = () => {
-  localStorage.removeItem(KEYS.CAMPAIGNS);
-  localStorage.removeItem(KEYS.CONTACTS);
-  localStorage.removeItem(KEYS.TEMPLATES);
-  localStorage.removeItem(KEYS.SETTINGS);
+  removeLocalStorageItem(KEYS.CAMPAIGNS, [LEGACY_STORAGE_KEYS.CAMPAIGNS]);
+  removeLocalStorageItem(KEYS.CONTACTS, [LEGACY_STORAGE_KEYS.CONTACTS]);
+  removeLocalStorageItem(KEYS.TEMPLATES, [LEGACY_STORAGE_KEYS.TEMPLATES]);
+  removeLocalStorageItem(KEYS.SETTINGS, [LEGACY_STORAGE_KEYS.SETTINGS]);
   initStorage();
 };
 

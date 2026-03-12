@@ -7,6 +7,13 @@
  * @see https://developers.facebook.com/docs/whatsapp/messaging-limits
  * @see https://developers.facebook.com/docs/whatsapp/throughput
  */
+import {
+  LEGACY_LIMITS_STORAGE_KEY,
+  LIMITS_STORAGE_KEY,
+  getLocalStorageItem,
+  setLocalStorageItem,
+} from './branding';
+export { LIMITS_STORAGE_KEY } from './branding';
 
 // ===== TYPES =====
 
@@ -412,7 +419,6 @@ function formatDuration(seconds: number): string {
 
 // ===== STORAGE =====
 
-export const LIMITS_STORAGE_KEY = 'smartzap_account_limits';
 
 /**
  * Obtém limites cacheados do `localStorage`.
@@ -423,7 +429,7 @@ export const LIMITS_STORAGE_KEY = 'smartzap_account_limits';
  */
 export function getCachedLimits(): AccountLimits | null {
   if (typeof window === 'undefined') return null;
-  const stored = localStorage.getItem(LIMITS_STORAGE_KEY);
+  const stored = getLocalStorageItem(LIMITS_STORAGE_KEY, [LEGACY_LIMITS_STORAGE_KEY]);
   if (!stored) return null;
   try {
     return JSON.parse(stored);
@@ -442,7 +448,7 @@ export function getCachedLimits(): AccountLimits | null {
  */
 export function cacheLimits(limits: AccountLimits): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(LIMITS_STORAGE_KEY, JSON.stringify(limits));
+  setLocalStorageItem(LIMITS_STORAGE_KEY, JSON.stringify(limits), [LEGACY_LIMITS_STORAGE_KEY]);
 }
 
 /**

@@ -15,6 +15,7 @@ import { CampaignStatus, ContactStatus } from '@/types'
 import { unauthorizedResponse, verifyApiKey } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { createHash } from 'crypto'
+import { hasSessionCookieHeader } from '@/lib/branding'
 
 interface DispatchContact {
   contactId?: string
@@ -179,7 +180,7 @@ export async function POST(request: NextRequest) {
   const bodyText = await request.text()
   const signature = request.headers.get('upstash-signature')
   const cookieHeader = request.headers.get('cookie') || ''
-  const hasSession = cookieHeader.includes('smartzap_session=')
+  const hasSession = hasSessionCookieHeader(cookieHeader)
 
   // Auth: QStash requests têm signature header, requests manuais usam session ou API key
   if (!signature && !hasSession) {

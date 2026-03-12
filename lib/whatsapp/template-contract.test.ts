@@ -1419,7 +1419,7 @@ describe('buildMetaTemplatePayload', () => {
     expect(buttonComponent).toBeDefined()
     expect(buttonComponent.sub_type).toBe('flow')
     expect(buttonComponent.parameters[0].type).toBe('action')
-    expect(buttonComponent.parameters[0].action.flow_token).toContain('smartzap:')
+    expect(buttonComponent.parameters[0].action.flow_token).toContain('hangarzap:')
   })
 
   it('deve anexar campaignId ao flow_token', () => {
@@ -1466,13 +1466,13 @@ describe('buildMetaTemplatePayload', () => {
       parameterFormat: 'positional',
       values: {
         body: [],
-        buttons: [{ index: 0, params: [{ key: 'token', text: 'smartzap:flow_123:abc:xyz' }] }],
+        buttons: [{ index: 0, params: [{ key: 'token', text: 'hangarzap:flow_123:abc:xyz' }] }],
       },
       template,
       campaignId: 'camp_1',
     })
     const buttonComponent = payload.template.components.find((c: any) => c.type === 'button')
-    expect(buttonComponent.parameters[0].action.flow_token).toBe('smartzap:flow_123:abc:xyz:c:camp_1')
+    expect(buttonComponent.parameters[0].action.flow_token).toBe('hangarzap:flow_123:abc:xyz:c:camp_1')
   })
 
   it('deve não duplicar campaignId em flow_token', () => {
@@ -1494,14 +1494,14 @@ describe('buildMetaTemplatePayload', () => {
       parameterFormat: 'positional',
       values: {
         body: [],
-        buttons: [{ index: 0, params: [{ key: 'token', text: 'smartzap:flow_123:abc:xyz:c:camp_1' }] }],
+        buttons: [{ index: 0, params: [{ key: 'token', text: 'hangarzap:flow_123:abc:xyz:c:camp_1' }] }],
       },
       template,
       campaignId: 'camp_1',
     })
     const buttonComponent = payload.template.components.find((c: any) => c.type === 'button')
     // Deve não adicionar ':c:camp_1' novamente
-    expect(buttonComponent.parameters[0].action.flow_token).toBe('smartzap:flow_123:abc:xyz:c:camp_1')
+    expect(buttonComponent.parameters[0].action.flow_token).toBe('hangarzap:flow_123:abc:xyz:c:camp_1')
   })
 
   it('deve gerar payload sem componentes quando body não tem variáveis', () => {
@@ -1594,3 +1594,4 @@ describe('buildMetaTemplatePayload', () => {
     })
   })
 })
+// @vitest-environment node

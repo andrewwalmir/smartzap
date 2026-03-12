@@ -18,6 +18,7 @@ import {
   validateCampaign,
   TIER_DISPLAY_NAMES,
 } from '../lib/meta-limits';
+import { LEGACY_LIMITS_STORAGE_KEY, removeLocalStorageItem } from '../lib/branding';
 
 // Query key for React Query
 const LIMITS_QUERY_KEY = ['account-limits'];
@@ -108,7 +109,7 @@ export function useAccountLimits() {
    * Force refresh limits from API
    */
   const refreshLimits = () => {
-    localStorage.removeItem(LIMITS_STORAGE_KEY);
+    removeLocalStorageItem(LIMITS_STORAGE_KEY, [LEGACY_LIMITS_STORAGE_KEY]);
     queryClient.invalidateQueries({ queryKey: LIMITS_QUERY_KEY });
   };
   

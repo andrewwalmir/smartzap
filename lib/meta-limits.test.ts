@@ -762,6 +762,7 @@ describe('Storage functions', () => {
 
   describe('getCachedLimits', () => {
     beforeEach(() => {
+      vi.stubGlobal('window', {} as Window & typeof globalThis)
       // Mock localStorage
       vi.stubGlobal('localStorage', {
         getItem: vi.fn(),
@@ -811,6 +812,7 @@ describe('Storage functions', () => {
 
   describe('cacheLimits', () => {
     beforeEach(() => {
+      vi.stubGlobal('window', {} as Window & typeof globalThis)
       vi.stubGlobal('localStorage', {
         getItem: vi.fn(),
         setItem: vi.fn(),
@@ -895,6 +897,7 @@ describe('Storage functions', () => {
 
 describe('LIMITS_STORAGE_KEY', () => {
   it('should be the expected key', () => {
-    expect(LIMITS_STORAGE_KEY).toBe('smartzap_account_limits')
+    expect(LIMITS_STORAGE_KEY).toBe('hangarzap_account_limits')
   })
 })
+// @vitest-environment node

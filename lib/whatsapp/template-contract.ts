@@ -1,5 +1,6 @@
 import type { Template, TemplateComponent, TemplateButton } from '@/types'
 import { normalizePhoneNumber, validatePhoneNumber } from '@/lib/phone-formatter'
+import { appendCampaignToFlowToken, generateFlowToken } from '@/lib/branding'
 
 export type TemplateParameterFormat = 'positional' | 'named'
 
@@ -535,20 +536,6 @@ function mapButtonSubType(buttonType?: TemplateButton['type']): string | null {
   }
 }
 
-function generateFlowToken(flowId?: string, campaignId?: string): string {
-  const seed = Math.random().toString(36).slice(2, 8)
-  const stamp = Date.now().toString(36)
-  const suffix = campaignId ? `:c:${campaignId}` : ''
-  return `smartzap:${flowId || 'flow'}:${stamp}:${seed}${suffix}`
-}
-
-function appendCampaignToFlowToken(token: string, campaignId?: string): string {
-  if (!campaignId) return token
-  if (token.includes(':c:')) return token
-  if (!token.startsWith('smartzap:')) return token
-  return `${token}:c:${campaignId}`
-}
-
 export function buildMetaTemplatePayload(input: {
   to: string
   templateName: string
@@ -745,7 +732,7 @@ export function buildMetaTemplatePayload(input: {
         const rawFlowToken = params[0]?.text?.trim()
         const flowToken = rawFlowToken
           ? appendCampaignToFlowToken(rawFlowToken, campaignId)
-          : generateFlowToken(flowId, campaignId)
+          : generateFlowToken(flowId, campaignId ? `:c:${campaignId}` : '')
         const action: Record<string, unknown> = { flow_token: flowToken }
 
         const flowAction = (entry.button.action as any)?.flow_action

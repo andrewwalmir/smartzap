@@ -3,7 +3,7 @@
 import { createHmac } from 'node:crypto'
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { inboundTextPayload, statusDeliveredPayload } from './webhook-meta-payloads'
+import { webhookFixtures } from '@/tests/fixtures/webhook-meta-payloads'
 
 const mockGetSupabaseAdmin = vi.fn()
 const mockSupabaseFrom = vi.fn()
@@ -15,6 +15,7 @@ const mockGetPendingConversation = vi.fn()
 const mockHandleInboundMessage = vi.fn()
 const mockWorkflowTrigger = vi.fn()
 const mockQStashPublish = vi.fn()
+const mockFlowSubmissionUpsert = vi.fn()
 
 vi.mock('@/lib/supabase', () => ({
   getSupabaseAdmin: mockGetSupabaseAdmin,
@@ -159,6 +160,36 @@ describe('/api/webhook', () => {
         }
       }
 
+      if (table === 'flow_submissions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              limit: async () => ({ data: [], error: null }),
+              order: () => ({
+                limit: async () => ({ data: [], error: null }),
+              }),
+            }),
+          }),
+          upsert: mockFlowSubmissionUpsert,
+        }
+      }
+
+      if (table === 'contacts' || table === 'flows') {
+        return {
+          select: () => ({
+            eq: () => ({
+              limit: async () => ({ data: [], error: null }),
+              order: () => ({
+                limit: async () => ({ data: [], error: null }),
+              }),
+            }),
+            order: () => ({
+              limit: async () => ({ data: [], error: null }),
+            }),
+          }),
+        }
+      }
+
       return {
         update: () => ({
           eq: () => ({
@@ -251,7 +282,7 @@ describe('/api/webhook', () => {
       const supabaseSpy = vi.mocked(getSupabaseAdmin)
 
       const { POST } = await import('./route')
-      const rawBody = JSON.stringify(inboundTextPayload)
+      const rawBody = JSON.stringify(webhookFixtures.inboundText)
       const request = createSignedRequest(rawBody)
 
       const response = await POST(request)
@@ -284,7 +315,7 @@ describe('/api/webhook', () => {
       )
 
       const { POST } = await import('./route')
-      const rawBody = JSON.stringify(inboundTextPayload)
+      const rawBody = JSON.stringify(webhookFixtures.inboundText)
       const request = createSignedRequest(rawBody, { 'x-smartzap-webhook-worker': '1' })
 
       const response = await POST(request)
@@ -293,30 +324,124 @@ describe('/api/webhook', () => {
       await expect(response.json()).resolves.toMatchObject({ status: 'ok' })
       expect(mockHandleInboundMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          from: inboundTextPayload.entry[0].changes[0].value.messages[0].from,
+          from: webhookFixtures.inboundText.entry[0].changes[0].value.messages[0].from,
           type: 'text',
-          text: inboundTextPayload.entry[0].changes[0].value.messages[0].text.body,
+          text: webhookFixtures.inboundText.entry[0].changes[0].value.messages[0].text.body,
         }),
       )
       expect(mockWorkflowTrigger).toHaveBeenCalledTimes(1)
       expect(mockWorkflowTrigger).toHaveBeenCalledWith(
         expect.objectContaining({
           url: 'https://hangarzap.example.com/api/builder/workflow/workflow-default/execute',
+          workflowRunId: expect.stringContaining('wa_'),
           body: expect.objectContaining({
             workflowId: 'workflow-default',
             input: expect.objectContaining({
-              from: inboundTextPayload.entry[0].changes[0].value.messages[0].from,
-              to: inboundTextPayload.entry[0].changes[0].value.messages[0].from,
-              message: inboundTextPayload.entry[0].changes[0].value.messages[0].text.body,
+              from: webhookFixtures.inboundText.entry[0].changes[0].value.messages[0].from,
+              to: webhookFixtures.inboundText.entry[0].changes[0].value.messages[0].from,
+              message: webhookFixtures.inboundText.entry[0].changes[0].value.messages[0].text.body,
             }),
           }),
         }),
       )
     })
 
+    it('consumes button reply fixture and uses the button title as workflow input', async () => {
+      process.env.QSTASH_TOKEN = 'qstash-token'
+      mockSettingsDbGet.mockImplementation(async (key: string) =>
+        key === 'workflow_builder_default_id' ? 'workflow-default' : null,
+      )
+
+      const { POST } = await import('./route')
+      const rawBody = JSON.stringify(webhookFixtures.inboundButtonReply)
+      const request = createSignedRequest(rawBody, { 'x-smartzap-webhook-worker': '1' })
+
+      const response = await POST(request)
+
+      expect(response.status).toBe(200)
+      expect(mockWorkflowTrigger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            input: expect.objectContaining({
+              message: webhookFixtures.inboundButtonReply.entry[0].changes[0].value.messages[0].interactive.button_reply.title,
+            }),
+          }),
+        }),
+      )
+    })
+
+    it('consumes list reply fixture and uses the list title as workflow input', async () => {
+      process.env.QSTASH_TOKEN = 'qstash-token'
+      mockSettingsDbGet.mockImplementation(async (key: string) =>
+        key === 'workflow_builder_default_id' ? 'workflow-default' : null,
+      )
+
+      const { POST } = await import('./route')
+      const rawBody = JSON.stringify(webhookFixtures.inboundListReply)
+      const request = createSignedRequest(rawBody, { 'x-smartzap-webhook-worker': '1' })
+
+      const response = await POST(request)
+
+      expect(response.status).toBe(200)
+      expect(mockWorkflowTrigger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({
+            input: expect.objectContaining({
+              message: webhookFixtures.inboundListReply.entry[0].changes[0].value.messages[0].interactive.list_reply.title,
+            }),
+          }),
+        }),
+      )
+    })
+
+    it('consumes flow reply fixture and persists response_json in flow_submissions', async () => {
+      mockFlowSubmissionUpsert.mockResolvedValue({ error: null })
+
+      const { POST } = await import('./route')
+      const rawBody = JSON.stringify(webhookFixtures.inboundFlowReply)
+      const request = createSignedRequest(rawBody, { 'x-smartzap-webhook-worker': '1' })
+
+      const response = await POST(request)
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toMatchObject({ status: 'ok' })
+      expect(mockFlowSubmissionUpsert).toHaveBeenCalled()
+      expect(mockFlowSubmissionUpsert.mock.calls[0]?.[0]).toMatchObject(
+        expect.objectContaining({
+          message_id: webhookFixtures.inboundFlowReply.entry[0].changes[0].value.messages[0].id,
+          response_json_raw: webhookFixtures.inboundFlowReply.entry[0].changes[0].value.messages[0].interactive.nfm_reply.response_json,
+          response_json: expect.objectContaining({
+            flow_token: 'campaign_token_abc',
+            selected_date: '2026-12-12',
+            selected_service: 'Consultation',
+          }),
+        }),
+      )
+    })
+
+    it('uses the same workflowRunId for duplicate inbound payloads', async () => {
+      process.env.QSTASH_TOKEN = 'qstash-token'
+      mockSettingsDbGet.mockImplementation(async (key: string) =>
+        key === 'workflow_builder_default_id' ? 'workflow-default' : null,
+      )
+
+      const { POST } = await import('./route')
+      const rawBody = JSON.stringify(webhookFixtures.inboundText)
+      const firstRequest = createSignedRequest(rawBody, { 'x-smartzap-webhook-worker': '1' })
+      const secondRequest = createSignedRequest(rawBody, { 'x-smartzap-webhook-worker': '1' })
+
+      await POST(firstRequest)
+      await POST(secondRequest)
+
+      const firstCall = mockWorkflowTrigger.mock.calls[0]?.[0]
+      const secondCall = mockWorkflowTrigger.mock.calls[1]?.[0]
+
+      expect(firstCall?.workflowRunId).toBe(secondCall?.workflowRunId)
+    })
+
     it('consumes status fixture without triggering workflow execution', async () => {
       const { POST } = await import('./route')
-      const rawBody = JSON.stringify(statusDeliveredPayload)
+      const rawBody = JSON.stringify(webhookFixtures.statusDelivered)
       const request = createSignedRequest(rawBody, { 'x-smartzap-webhook-worker': '1' })
 
       const response = await POST(request)

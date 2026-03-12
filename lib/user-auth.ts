@@ -12,6 +12,7 @@
 import { cookies } from 'next/headers'
 import { supabase } from './supabase'
 import { normalizePhoneNumber, validateAnyPhoneNumber } from './phone-formatter'
+import { clearSessionCookies, getSessionCookieValue, SESSION_COOKIE_NAME } from './branding'
 
 function getFirstName(fullName: string): string {
   const normalized = fullName.trim().replace(/\s+/gu, ' ')
@@ -24,7 +25,6 @@ function getFirstName(fullName: string): string {
 // CONSTANTS
 // ============================================================================
 
-const SESSION_COOKIE_NAME = 'smartzap_session'
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7 // 7 days in seconds
 const MAX_LOGIN_ATTEMPTS = 5
 const LOCKOUT_DURATION = 15 * 60 * 1000 // 15 minutes
@@ -453,8 +453,8 @@ export async function loginUser(password: string): Promise<UserAuthResult> {
 export async function logoutUser(): Promise<void> {
   const cookieStore = await cookies()
 
-  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value
-  cookieStore.delete(SESSION_COOKIE_NAME)
+  const sessionToken = getSessionCookieValue(cookieStore)
+  clearSessionCookies(cookieStore)
 
   // Best-effort: remove o token atual da lista de sessÃµes para revogar imediatamente.
   if (sessionToken) {
@@ -526,7 +526,7 @@ async function createSession(): Promise<void> {
 export async function validateSession(): Promise<boolean> {
   try {
     const cookieStore = await cookies()
-    const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value
+    const sessionToken = getSessionCookieValue(cookieStore)
 
     if (!sessionToken) return false
 

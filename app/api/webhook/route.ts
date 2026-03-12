@@ -37,6 +37,7 @@ import { ensureWorkflowRecord, getCompanyId } from '@/lib/builder/workflow-db'
 import { Client as WorkflowClient } from '@upstash/workflow'
 import { Client as QStashClient } from '@upstash/qstash'
 import { getPendingConversation } from '@/lib/builder/workflow-conversations'
+import { extractMetaFlowIdFromFlowToken } from '@/lib/branding'
 
 // T046-T048: Inbox integration
 import {
@@ -438,13 +439,6 @@ function extractConfirmationConfigFromSpec(spec: unknown): {
     }
   }
   return {}
-}
-
-function extractMetaFlowIdFromSmartzapToken(flowToken: string | null): string | null {
-  const raw = String(flowToken || '').trim()
-  if (!raw) return null
-  const m = raw.match(/^smartzap:(\d{6,25}):/)
-  return m?.[1] || null
 }
 
 function humanizeOptionId(value: string): string {
@@ -1087,6 +1081,7 @@ export async function POST(request: NextRequest) {
 
               await workflowClient.trigger({
                 url: `${baseUrl}/api/builder/workflow/${targetWorkflowId}/execute`,
+                workflowRunId: `wa_${String(message?.id || '').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
                 body: {
                   workflowId: targetWorkflowId,
                   input: { from, to: from, message: text },
@@ -1184,7 +1179,7 @@ export async function POST(request: NextRequest) {
                 labels?: Record<string, string>
               } | null = null
 
-              const metaFlowIdFromToken = extractMetaFlowIdFromSmartzapToken(flowToken)
+              const metaFlowIdFromToken = extractMetaFlowIdFromFlowToken(flowToken)
               const metaFlowIdMismatch = !!(flowId && metaFlowIdFromToken && flowId !== metaFlowIdFromToken)
               const metaFlowIdForLookup = metaFlowIdFromToken || flowId
               if (metaFlowIdForLookup && responseJson && typeof responseJson === 'object') {

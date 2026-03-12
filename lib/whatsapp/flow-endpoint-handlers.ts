@@ -21,6 +21,7 @@ import {
   createErrorResponse,
   type FlowDataExchangeRequest,
 } from './flow-endpoint-crypto'
+import { extractMetaFlowIdFromFlowToken } from '@/lib/branding'
 
 // --- Tipos ---
 
@@ -143,16 +144,9 @@ async function getBookingServices(fallback?: ServiceType[]): Promise<ServiceType
   }
 }
 
-function extractMetaFlowIdFromToken(flowToken?: string | null): string | null {
-  const raw = String(flowToken || '').trim()
-  if (!raw) return null
-  const m = raw.match(/^smartzap:(\d{6,25}):/)
-  return m?.[1] || null
-}
-
 async function loadFlowJsonFromToken(flowToken?: string | null): Promise<Record<string, unknown> | null> {
   if (!isSupabaseConfigured()) return null
-  const metaFlowId = extractMetaFlowIdFromToken(flowToken)
+  const metaFlowId = extractMetaFlowIdFromFlowToken(flowToken)
   if (!metaFlowId) return null
   const { data, error } = await supabase
     .from('flows')
