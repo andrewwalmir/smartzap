@@ -13,14 +13,14 @@ interface TemplatePreviewRendererProps {
  */
 const replaceVariables = (text: string, variables?: string[]): string => {
     if (!variables || !Array.isArray(variables) || variables.length === 0) return text;
-    
+
     let result = text;
     variables.forEach((value, index) => {
         // Replace {{1}}, {{2}}, etc. (1-indexed)
         const placeholder = `{{${index + 1}}}`;
         result = result.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value || '');
     });
-    
+
     return result;
 };
 
@@ -102,7 +102,7 @@ export const TemplatePreviewRenderer: React.FC<TemplatePreviewRendererProps> = (
                         <div className="relative h-24 bg-gradient-to-br from-emerald-900/50 to-emerald-800/30">
                             {/* Grid pattern to simulate map */}
                             <div className="absolute inset-0 opacity-10" style={{
-                                backgroundImage: 'linear-gradient(#10b981 1px, transparent 1px), linear-gradient(90deg, #10b981 1px, transparent 1px)',
+                                backgroundImage: 'linear-gradient(#1B53F5 1px, transparent 1px), linear-gradient(90deg, #1B53F5 1px, transparent 1px)',
                                 backgroundSize: '20px 20px'
                             }} />
                             {/* Pin */}

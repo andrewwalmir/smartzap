@@ -44,12 +44,12 @@ export const elevations = {
 // =============================================================================
 
 export const glows = {
-  // Brand glow (emerald)
+  // Brand glow (brandBlue)
   brand: {
-    sm: `0 0 10px ${primitiveColors.emerald[500]}33`,
-    md: `0 0 20px ${primitiveColors.emerald[500]}4d`,
-    lg: `0 0 30px ${primitiveColors.emerald[500]}66`,
-    ring: `0 0 0 3px ${primitiveColors.emerald[500]}33`,
+    sm: `0 0 10px ${primitiveColors.brandBlue[500]}33`,
+    md: `0 0 20px ${primitiveColors.brandBlue[500]}4d`,
+    lg: `0 0 30px ${primitiveColors.brandBlue[500]}66`,
+    ring: `0 0 0 3px ${primitiveColors.brandBlue[500]}33`,
   },
 
   // Success glow
@@ -148,14 +148,14 @@ export const compositeShadows = {
   dropdown: `${elevations.lg}, 0 0 0 1px rgba(255, 255, 255, 0.05)`,
 
   /** Input focus */
-  inputFocus: `0 0 0 3px ${primitiveColors.emerald[500]}33`,
+  inputFocus: `0 0 0 3px ${primitiveColors.brandBlue[500]}33`,
   inputError: `0 0 0 3px ${primitiveColors.red[500]}33`,
 
   /** Glass panel */
   glass: `${elevations.lg}, inset 0 1px 0 0 rgba(255, 255, 255, 0.05)`,
 
   /** Progress bar glow */
-  progressGlow: `0 0 10px ${primitiveColors.emerald[500]}80`,
+  progressGlow: `0 0 10px ${primitiveColors.brandBlue[500]}80`,
 
   /** Node selected (workflow builder) */
   nodeSelected: `0 0 0 2px ${primitiveColors.blue[500]}, ${elevations.md}`,

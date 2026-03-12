@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
  * Mudanças do DS:
  * - Transição usando --ds-transition-fast (150ms ease-out)
  * - Sombras compostas do DS ao invés de shadow-black/5
- * - Glow emerald no hover para variante default (primary)
+ * - Glow brand no hover para variante default (primary)
  */
 const buttonVariants = cva(
   "inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring/70 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
@@ -51,11 +51,11 @@ const buttonVariants = cva(
           "[transition:var(--ds-transition-fast)]",
         ].join(" "),
         link: "text-primary underline-offset-4 hover:underline",
-        // Nova variante brand com glow emerald
+        // Nova variante brand com glow blue (cor primária #1B53F5)
         brand: [
-          "bg-emerald-600 text-white border border-emerald-600",
+          "bg-primary-600 text-white border border-primary-600",
           "[box-shadow:var(--ds-shadow-button-primary)]",
-          "hover:bg-emerald-500 hover:border-emerald-500 hover:[box-shadow:var(--ds-shadow-button-primary-hover)]",
+          "hover:bg-primary-500 hover:border-primary-500 hover:[box-shadow:var(--ds-shadow-button-primary-hover)]",
           "[transition:var(--ds-transition-fast)]",
         ].join(" "),
       },
@@ -77,7 +77,7 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }
 

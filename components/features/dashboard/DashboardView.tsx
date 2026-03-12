@@ -131,8 +131,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, recentCampa
                 { key: '15D', label: 'Últimos 15 dias' },
                 { key: '30D', label: 'Últimos 30 dias' }
               ].map((t) => (
-                <button 
-                  key={t.key} 
+                <button
+                  key={t.key}
                   aria-label={t.label}
                   aria-pressed={t.key === range}
                   onClick={() => setRange(t.key as '7D' | '15D' | '30D')}
@@ -143,8 +143,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, recentCampa
               ))}
             </div>
           </div>
-          <figure 
-            role="figure" 
+          <figure
+            role="figure"
             aria-labelledby="chart-title"
             aria-describedby="chart-description"
           >
@@ -152,57 +152,57 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, recentCampa
               {isMounted && chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <AreaChart data={chartData.slice(-rangeSize)} aria-hidden="true">
-                  <defs>
-                    <linearGradient id="colorSent" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.22}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.06)" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{fill: '#71717a', fontSize: 12}} 
-                  dy={15}
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{fill: '#71717a', fontSize: 12}} 
-                />
-                <Tooltip
-                  contentStyle={{backgroundColor: '#101113', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', color: '#fff'}}
-                  itemStyle={{color: '#10b981'}}
-                  labelStyle={{color: '#a1a1aa'}}
-                  formatter={(value) => [value, 'Enviadas']}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="sent" 
-                  stroke="#10b981" 
-                  strokeWidth={2}
-                  fillOpacity={1} 
-                  fill="url(#colorSent)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+                    <defs>
+                      <linearGradient id="colorSent" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#1B53F5" stopOpacity={0.22} />
+                        <stop offset="95%" stopColor="#1B53F5" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.06)" />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#71717a', fontSize: 12 }}
+                      dy={15}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#71717a', fontSize: 12 }}
+                    />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#101113', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', color: '#fff' }}
+                      itemStyle={{ color: '#1B53F5' }}
+                      labelStyle={{ color: '#a1a1aa' }}
+                      formatter={(value) => [value, 'Enviadas']}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="sent"
+                      stroke="#1B53F5"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorSent)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               ) : (
                 <div className="h-full w-full rounded-xl bg-[var(--ds-bg-hover)]" aria-hidden="true" />
               )}
-          </div>
-          <p id="chart-description" className="sr-only">
-            Gráfico de área mostrando o volume de mensagens enviadas ao longo do tempo. 
-            Os dados são atualizados automaticamente.
-          </p>
-        </figure>
+            </div>
+            <p id="chart-description" className="sr-only">
+              Gráfico de área mostrando o volume de mensagens enviadas ao longo do tempo.
+              Os dados são atualizados automaticamente.
+            </p>
+          </figure>
         </Container>
 
         {/* Recent Activity */}
         <Container variant="glass" padding="none" className="flex flex-col overflow-hidden">
           <div className="p-6 border-b border-[var(--ds-border-default)] flex justify-between items-center">
             <h3 className="text-heading-4">Campanhas Recentes</h3>
-            <button 
+            <button
               aria-label="Mais opções"
               className="text-[var(--ds-text-muted)] hover:text-[var(--ds-text-primary)] transition-colors"
             >
@@ -224,7 +224,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ stats, recentCampa
                 </thead>
                 <tbody className="divide-y divide-[var(--ds-border-subtle)]">
                   {recentCampaigns.map((campaign) => (
-                    <tr key={campaign.id} className="hover:bg-[var(--ds-bg-hover)] transition-all duration-200 group cursor-pointer hover:shadow-[inset_0_0_20px_rgba(16,185,129,0.05)]">
+                    <tr key={campaign.id} className="hover:bg-[var(--ds-bg-hover)] transition-all duration-200 group cursor-pointer hover:shadow-[inset_0_0_20px_rgba(27,83,245,0.05)]">
                       <td className="px-6 py-5">
                         <p className="font-medium text-[var(--ds-text-primary)] group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors duration-200">{campaign.name}</p>
                         <p className="text-[var(--ds-text-muted)] text-xs mt-1 font-mono">{formatDateFull(campaign.createdAt)}</p>

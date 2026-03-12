@@ -69,12 +69,12 @@ function Gauge(props: {
 
           {/* Faixas discretas de risco */}
           <path d={arcD} fill="none" stroke="#3f3f46" strokeWidth={14} strokeLinecap="round" opacity={0.35} />
-          <path d={arcD} fill="none" stroke="#10b981" strokeWidth={14} strokeLinecap="round" opacity={0.18} />
+          <path d={arcD} fill="none" stroke="#1B53F5" strokeWidth={14} strokeLinecap="round" opacity={0.18} />
           <path d={arcD} fill="none" stroke="#f59e0b" strokeWidth={14} strokeLinecap="round" opacity={0.14} />
           <path d={arcD} fill="none" stroke="#ef4444" strokeWidth={14} strokeLinecap="round" opacity={0.10} />
 
           {/* Preenchimento */}
-          <path d={arcFillD} fill="none" stroke="#10b981" strokeWidth={14} strokeLinecap="round" />
+          <path d={arcFillD} fill="none" stroke="#1B53F5" strokeWidth={14} strokeLinecap="round" />
 
           {/* Ponteiro */}
           <line x1={cx} y1={cy} x2={x} y2={y} stroke="#e5e7eb" strokeWidth={3} strokeLinecap="round" />
@@ -355,25 +355,25 @@ export function SettingsPerformanceView(props: {
           {isMounted && chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="colorThroughput" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
-              <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 11 }} minTickGap={24} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 11 }} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#18181b', borderRadius: '12px', border: '1px solid #27272a', color: '#fff' }}
-                formatter={(value: any, name: any) => {
-                  if (name === 'throughput') return [typeof value === 'number' ? value.toFixed(2) : value, 'mps']
-                  if (name === 'metaAvg') return [typeof value === 'number' ? `${Math.round(value)} ms` : value, 'Meta avg']
-                  return [value, name]
-                }}
-                labelFormatter={(label: any) => `Quando: ${label}`}
-              />
-              <Area type="monotone" dataKey="throughput" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorThroughput)" />
+                <defs>
+                  <linearGradient id="colorThroughput" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#1B53F5" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#1B53F5" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 11 }} minTickGap={24} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#18181b', borderRadius: '12px', border: '1px solid #27272a', color: '#fff' }}
+                  formatter={(value: any, name: any) => {
+                    if (name === 'throughput') return [typeof value === 'number' ? value.toFixed(2) : value, 'mps']
+                    if (name === 'metaAvg') return [typeof value === 'number' ? `${Math.round(value)} ms` : value, 'Meta avg']
+                    return [value, name]
+                  }}
+                  labelFormatter={(label: any) => `Quando: ${label}`}
+                />
+                <Area type="monotone" dataKey="throughput" stroke="#1B53F5" strokeWidth={2} fillOpacity={1} fill="url(#colorThroughput)" />
               </AreaChart>
             </ResponsiveContainer>
           ) : (

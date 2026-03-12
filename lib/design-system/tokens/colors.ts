@@ -28,7 +28,7 @@ export const primitiveColors = {
     950: '#09090b',
   },
 
-  // Emerald Scale (Primary - WhatsApp inspired)
+  // Emerald Scale (Success/status)
   emerald: {
     50: '#ecfdf5',
     100: '#d1fae5',
@@ -41,6 +41,21 @@ export const primitiveColors = {
     800: '#065f46',
     900: '#064e3b',
     950: '#022c22',
+  },
+
+  // Brand Blue Scale (Primary - #1B53F5)
+  brandBlue: {
+    50: '#EEF2FE',
+    100: '#D9E2FD',
+    200: '#B8C9FB',
+    300: '#8BA8F8',
+    400: '#5B7EF6',
+    500: '#1B53F5',
+    600: '#1541D4',
+    700: '#1234B0',
+    800: '#112B8A',
+    900: '#0F2470',
+    950: '#091544',
   },
 
   // Red Scale (Destructive/Error)
@@ -145,11 +160,11 @@ export const primitiveColors = {
 export const semanticColors = {
   // Brand
   brand: {
-    primary: primitiveColors.emerald[500],
-    primaryHover: primitiveColors.emerald[600],
-    primaryActive: primitiveColors.emerald[700],
-    primaryMuted: primitiveColors.emerald[500] + '1a', // 10% opacity
-    primarySubtle: primitiveColors.emerald[950],
+    primary: primitiveColors.brandBlue[500],
+    primaryHover: primitiveColors.brandBlue[600],
+    primaryActive: primitiveColors.brandBlue[700],
+    primaryMuted: primitiveColors.brandBlue[500] + '1a', // 10% opacity
+    primarySubtle: primitiveColors.brandBlue[950],
   },
 
   // Backgrounds
@@ -170,7 +185,7 @@ export const semanticColors = {
     muted: primitiveColors.zinc[500],
     disabled: primitiveColors.zinc[600],
     inverse: primitiveColors.zinc[950],
-    brand: primitiveColors.emerald[400],
+    brand: primitiveColors.brandBlue[400],
   },
 
   // Borders
@@ -178,8 +193,8 @@ export const semanticColors = {
     subtle: 'rgba(255, 255, 255, 0.05)',
     default: 'rgba(255, 255, 255, 0.10)',
     strong: 'rgba(255, 255, 255, 0.15)',
-    brand: primitiveColors.emerald[500],
-    focus: primitiveColors.emerald[400],
+    brand: primitiveColors.brandBlue[500],
+    focus: primitiveColors.brandBlue[400],
   },
 
   // Status Colors
