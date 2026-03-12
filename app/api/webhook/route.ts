@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 
 export const dynamic = 'force-dynamic' // Prevent caching of verification requests
 export const runtime = 'nodejs'
 import { getSupabaseAdmin, supabase } from '@/lib/supabase'
-import { getAppBaseUrl } from '@/lib/app-url'
+import { getAppBaseUrl, getAppBaseUrlOrNull } from '@/lib/app-url'
 import { normalizePhoneNumber } from '@/lib/phone-formatter'
 import { upsertPhoneSuppression } from '@/lib/phone-suppressions'
 import { maybeAutoSuppressByFailure } from '@/lib/auto-suppression'
@@ -35,6 +35,7 @@ import { applyFlowMappingToContact } from '@/lib/flow-mapping'
 import { settingsDb } from '@/lib/supabase-db'
 import { ensureWorkflowRecord, getCompanyId } from '@/lib/builder/workflow-db'
 import { Client as WorkflowClient } from '@upstash/workflow'
+import { Client as QStashClient } from '@upstash/qstash'
 import { getPendingConversation } from '@/lib/builder/workflow-conversations'
 
 // T046-T048: Inbox integration
@@ -118,6 +119,57 @@ function verifyMetaWebhookSignature(input: { request: NextRequest; rawBody: stri
     if (a.length !== b.length) return false
     return timingSafeEqual(a, b)
   } catch {
+    return false
+  }
+}
+
+function isWebhookWorkerRequest(request: NextRequest): boolean {
+  return request.headers.get('x-smartzap-webhook-worker') === '1'
+}
+
+async function enqueueWebhookProcessingBestEffort(input: {
+  rawBody: string
+  signatureHeader: string | null
+}): Promise<boolean> {
+  const token = String(process.env.QSTASH_TOKEN || '').trim()
+  if (!token) return false
+
+  const baseUrl = getAppBaseUrlOrNull()
+  if (!baseUrl) return false
+
+  const signatureHeader = String(input.signatureHeader || '').trim()
+  if (!signatureHeader) return false
+
+  const client = new QStashClient({ token })
+  const dedupeId = `meta_webhook_${createHash('sha256').update(input.rawBody, 'utf8').digest('hex')}`
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Hub-Signature-256': signatureHeader,
+    'x-smartzap-webhook-worker': '1',
+  }
+
+  const apiKey = String(process.env.SMARTZAP_ADMIN_KEY || process.env.SMARTZAP_API_KEY || '').trim()
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`
+  }
+
+  const bypassSecret = String(process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '').trim()
+  if (bypassSecret) {
+    headers['x-vercel-protection-bypass'] = bypassSecret
+  }
+
+  try {
+    await client.publish({
+      url: `${baseUrl}/api/webhook`,
+      body: input.rawBody,
+      headers,
+      retries: 5,
+      deduplicationId: dedupeId,
+    })
+    return true
+  } catch (error) {
+    console.warn('[Webhook] Falha ao enfileirar processamento assíncrono, usando fallback síncrono:', error)
     return false
   }
 }
@@ -548,14 +600,26 @@ export async function POST(request: NextRequest) {
   if (!body) {
     return NextResponse.json({ status: 'ignored', error: 'Body inválido' }, { status: 400 })
   }
+  if (body.object !== 'whatsapp_business_account') {
+    return NextResponse.json({ status: 'ignored' })
+  }
+
+  if (!isWebhookWorkerRequest(request)) {
+    const enqueued = await enqueueWebhookProcessingBestEffort({
+      rawBody,
+      signatureHeader: request.headers.get('x-hub-signature-256') || request.headers.get('X-Hub-Signature-256'),
+    })
+
+    if (enqueued) {
+      return NextResponse.json({ status: 'accepted', queued: true })
+    }
+  }
+
   const supabaseAdmin = getSupabaseAdmin()
   if (!supabaseAdmin) {
     return NextResponse.json({ status: 'error', error: 'Supabase not configured' }, { status: 500 })
   }
 
-  if (body.object !== 'whatsapp_business_account') {
-    return NextResponse.json({ status: 'ignored' })
-  }
 
   // Evita logs gigantes: guardamos payload estruturado em DB (whatsapp_status_events)
   // e fazemos logs de alto nível aqui.

@@ -3,14 +3,28 @@
 import { createHmac } from 'node:crypto'
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { inboundTextPayload, statusDeliveredPayload } from './webhook-meta-payloads'
+
+const mockGetSupabaseAdmin = vi.fn()
+const mockSupabaseFrom = vi.fn()
+const mockGetVerifyToken = vi.fn()
+const mockSettingsDbGet = vi.fn()
+const mockEnsureWorkflowRecord = vi.fn()
+const mockGetCompanyId = vi.fn()
+const mockGetPendingConversation = vi.fn()
+const mockHandleInboundMessage = vi.fn()
+const mockWorkflowTrigger = vi.fn()
+const mockQStashPublish = vi.fn()
 
 vi.mock('@/lib/supabase', () => ({
-  getSupabaseAdmin: vi.fn(),
-  supabase: {},
+  getSupabaseAdmin: mockGetSupabaseAdmin,
+  supabase: {
+    from: mockSupabaseFrom,
+  },
 }))
 
 vi.mock('@/lib/verify-token', () => ({
-  getVerifyToken: vi.fn(),
+  getVerifyToken: mockGetVerifyToken,
 }))
 
 vi.mock('@/lib/phone-formatter', () => ({
@@ -40,16 +54,21 @@ vi.mock('@/lib/workflow-trace', () => ({
 }))
 
 vi.mock('@/lib/whatsapp-status-events', () => ({
-  applyStatusUpdateToCampaignContact: vi.fn(),
+  applyStatusUpdateToCampaignContact: vi.fn().mockResolvedValue({
+    reason: 'already_applied',
+    traceId: null,
+    campaignId: null,
+    phone: null,
+  }),
   enqueueWebhookStatusReconcileBestEffort: vi.fn(),
   markEventAttempt: vi.fn(),
-  normalizeMetaStatus: vi.fn(),
-  recordStatusEvent: vi.fn(),
-  tryParseWebhookTimestampSeconds: vi.fn(),
+  normalizeMetaStatus: vi.fn((status: string) => status),
+  recordStatusEvent: vi.fn().mockResolvedValue({ id: 'event-1' }),
+  tryParseWebhookTimestampSeconds: vi.fn(() => ({ iso: '2026-03-12T18:00:00.000Z', raw: '1736382001' })),
 }))
 
 vi.mock('@/lib/whatsapp-webhook-dedupe', () => ({
-  shouldProcessWhatsAppStatusEvent: vi.fn(),
+  shouldProcessWhatsAppStatusEvent: vi.fn().mockResolvedValue(true),
 }))
 
 vi.mock('@/lib/whatsapp-credentials', () => ({
@@ -62,39 +81,98 @@ vi.mock('@/lib/flow-mapping', () => ({
 
 vi.mock('@/lib/supabase-db', () => ({
   settingsDb: {
-    get: vi.fn(),
+    get: mockSettingsDbGet,
   },
 }))
 
 vi.mock('@/lib/builder/workflow-db', () => ({
-  ensureWorkflowRecord: vi.fn(),
-  getCompanyId: vi.fn(),
+  ensureWorkflowRecord: mockEnsureWorkflowRecord,
+  getCompanyId: mockGetCompanyId,
 }))
 
 vi.mock('@/lib/builder/workflow-conversations', () => ({
-  getPendingConversation: vi.fn(),
+  getPendingConversation: mockGetPendingConversation,
 }))
 
 vi.mock('@/lib/inbox/inbox-webhook', () => ({
-  handleInboundMessage: vi.fn(),
+  handleInboundMessage: mockHandleInboundMessage,
   handleDeliveryStatus: vi.fn(),
 }))
 
 vi.mock('@/lib/app-url', () => ({
-  getAppBaseUrl: vi.fn(),
+  getAppBaseUrl: vi.fn(() => 'https://hangarzap.example.com'),
+  getAppBaseUrlOrNull: vi.fn(() => 'https://hangarzap.example.com'),
 }))
 
 vi.mock('@upstash/workflow', () => ({
-  Client: vi.fn(),
+  Client: vi.fn().mockImplementation(function MockWorkflowClient() {
+    return { trigger: mockWorkflowTrigger } as any
+  }),
+}))
+
+vi.mock('@upstash/qstash', () => ({
+  Client: vi.fn().mockImplementation(function MockQStashClient() {
+    return { publish: mockQStashPublish } as any
+  }),
 }))
 
 describe('/api/webhook', () => {
   const env = { ...process.env }
 
+  function createSignedRequest(body: string, headers?: HeadersInit) {
+    const signature = `sha256=${createHmac('sha256', process.env.META_APP_SECRET || '').update(body, 'utf8').digest('hex')}`
+    return new NextRequest('http://localhost:3000/api/webhook', {
+      method: 'POST',
+      headers: {
+        'X-Hub-Signature-256': signature,
+        ...(headers || {}),
+      },
+      body,
+    })
+  }
+
   beforeEach(() => {
-    vi.resetModules()
     vi.clearAllMocks()
-    process.env = { ...env }
+    process.env = { ...env, META_APP_SECRET: 'top-secret' }
+
+    mockGetSupabaseAdmin.mockReturnValue({})
+    mockSettingsDbGet.mockResolvedValue(null)
+    mockEnsureWorkflowRecord.mockResolvedValue(undefined)
+    mockGetCompanyId.mockResolvedValue('company-1')
+    mockGetPendingConversation.mockResolvedValue(null)
+    mockHandleInboundMessage.mockResolvedValue({
+      conversationId: 'conversation-1',
+      messageId: 'message-1',
+      triggeredAI: false,
+    })
+    mockWorkflowTrigger.mockResolvedValue({ workflowRunId: 'run-1' })
+    mockQStashPublish.mockResolvedValue({ messageId: 'qstash-msg-1' })
+    mockGetVerifyToken.mockResolvedValue('verify-me')
+    mockSupabaseFrom.mockImplementation((table: string) => {
+      if (table === 'workflow_versions') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: async () => ({ data: [], error: null }),
+            }),
+          }),
+        }
+      }
+
+      return {
+        update: () => ({
+          eq: () => ({
+            select: async () => ({ data: [], error: null }),
+          }),
+        }),
+        select: () => ({
+          eq: () => ({
+            limit: async () => ({ data: [], error: null }),
+          }),
+        }),
+        rpc: async () => ({ error: null }),
+      }
+    })
   })
 
   afterEach(() => {
@@ -118,8 +196,6 @@ describe('/api/webhook', () => {
   })
 
   it('returns 401 when signature is invalid', async () => {
-    process.env.META_APP_SECRET = 'top-secret'
-
     const { POST } = await import('./route')
     const request = new NextRequest('http://localhost:3000/api/webhook', {
       method: 'POST',
@@ -136,18 +212,8 @@ describe('/api/webhook', () => {
   })
 
   it('returns 400 when body is not valid JSON', async () => {
-    process.env.META_APP_SECRET = 'top-secret'
-
     const { POST } = await import('./route')
-    const rawBody = '{"object":'
-    const signature = `sha256=${createHmac('sha256', process.env.META_APP_SECRET).update(rawBody, 'utf8').digest('hex')}`
-    const request = new NextRequest('http://localhost:3000/api/webhook', {
-      method: 'POST',
-      headers: {
-        'X-Hub-Signature-256': signature,
-      },
-      body: rawBody,
-    })
+    const request = createSignedRequest('{"object":')
 
     const response = await POST(request)
 
@@ -159,20 +225,12 @@ describe('/api/webhook', () => {
   })
 
   it('returns 500 when supabase is not configured after a valid payload', async () => {
-    process.env.META_APP_SECRET = 'top-secret'
-
     const { getSupabaseAdmin } = await import('@/lib/supabase')
     vi.mocked(getSupabaseAdmin).mockReturnValue(null)
 
     const { POST } = await import('./route')
-    const rawBody = JSON.stringify({ object: 'whatsapp_business_account', entry: [] })
-    const signature = `sha256=${createHmac('sha256', process.env.META_APP_SECRET).update(rawBody, 'utf8').digest('hex')}`
-    const request = new NextRequest('http://localhost:3000/api/webhook', {
-      method: 'POST',
-      headers: {
-        'X-Hub-Signature-256': signature,
-      },
-      body: rawBody,
+    const request = createSignedRequest(JSON.stringify({ object: 'whatsapp_business_account', entry: [] }), {
+      'x-smartzap-webhook-worker': '1',
     })
 
     const response = await POST(request)
@@ -184,10 +242,92 @@ describe('/api/webhook', () => {
     })
   })
 
-  it('verifies the challenge token on GET', async () => {
-    const { getVerifyToken } = await import('@/lib/verify-token')
-    vi.mocked(getVerifyToken).mockResolvedValue('verify-me')
+  describe('async ingress', () => {
+    it('queues inbound text fixture and responds 200', async () => {
+      process.env.QSTASH_TOKEN = 'qstash-token'
+      process.env.VERCEL_URL = 'hangarzap.example.com'
 
+      const { getSupabaseAdmin } = await import('@/lib/supabase')
+      const supabaseSpy = vi.mocked(getSupabaseAdmin)
+
+      const { POST } = await import('./route')
+      const rawBody = JSON.stringify(inboundTextPayload)
+      const request = createSignedRequest(rawBody)
+
+      const response = await POST(request)
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toMatchObject({
+        status: 'accepted',
+        queued: true,
+      })
+      expect(mockQStashPublish).toHaveBeenCalledTimes(1)
+      expect(mockQStashPublish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: 'https://hangarzap.example.com/api/webhook',
+          body: rawBody,
+          headers: expect.objectContaining({
+            'X-Hub-Signature-256': expect.stringMatching(/^sha256=/),
+            'x-smartzap-webhook-worker': '1',
+          }),
+        }),
+      )
+      expect(supabaseSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('worker processing', () => {
+    it('consumes inbound text fixture and triggers workflowClient.trigger()', async () => {
+      process.env.QSTASH_TOKEN = 'qstash-token'
+      mockSettingsDbGet.mockImplementation(async (key: string) =>
+        key === 'workflow_builder_default_id' ? 'workflow-default' : null,
+      )
+
+      const { POST } = await import('./route')
+      const rawBody = JSON.stringify(inboundTextPayload)
+      const request = createSignedRequest(rawBody, { 'x-smartzap-webhook-worker': '1' })
+
+      const response = await POST(request)
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toMatchObject({ status: 'ok' })
+      expect(mockHandleInboundMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: inboundTextPayload.entry[0].changes[0].value.messages[0].from,
+          type: 'text',
+          text: inboundTextPayload.entry[0].changes[0].value.messages[0].text.body,
+        }),
+      )
+      expect(mockWorkflowTrigger).toHaveBeenCalledTimes(1)
+      expect(mockWorkflowTrigger).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: 'https://hangarzap.example.com/api/builder/workflow/workflow-default/execute',
+          body: expect.objectContaining({
+            workflowId: 'workflow-default',
+            input: expect.objectContaining({
+              from: inboundTextPayload.entry[0].changes[0].value.messages[0].from,
+              to: inboundTextPayload.entry[0].changes[0].value.messages[0].from,
+              message: inboundTextPayload.entry[0].changes[0].value.messages[0].text.body,
+            }),
+          }),
+        }),
+      )
+    })
+
+    it('consumes status fixture without triggering workflow execution', async () => {
+      const { POST } = await import('./route')
+      const rawBody = JSON.stringify(statusDeliveredPayload)
+      const request = createSignedRequest(rawBody, { 'x-smartzap-webhook-worker': '1' })
+
+      const response = await POST(request)
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toMatchObject({ status: 'ok' })
+      expect(mockWorkflowTrigger).not.toHaveBeenCalled()
+    })
+  })
+
+  it('verifies the challenge token on GET', async () => {
     const { GET } = await import('./route')
     const request = new NextRequest(
       'http://localhost:3000/api/webhook?hub.mode=subscribe&hub.verify_token=verify-me&hub.challenge=abc123',
