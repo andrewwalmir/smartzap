@@ -34,3 +34,20 @@ Para o próximo passo evolutivo, onde o foco é **Escalabilidade Enterprise e To
 ---
 **Prioridade Sugerida de Entrega:**
 Começamos pelo **Item 1 (DLQ & Retries)**, pois afeta diretamente a conversão de *leads* e impede perda de dados fidedignos sob estresse pesado na base atual de produção.
+
+---
+
+## QA Validation Status (2026-03-12)
+
+| # | Frente | Status | Observação |
+|---|--------|--------|------------|
+| 1 | DLQ & Retries | ✅ Implementado | `failureCallback` configurado no publish do QStash. Sink em `/api/webhook/dlq` recebe e loga falhas com `correlationId`. Worker retorna 500 em erros de infra para acionar retry automático. |
+| 2 | Correlation ID | ✅ Implementado | UUID gerado na borda, propagado via header `x-correlation-id` no QStash publish e no trigger do workflow builder. Logs do Worker prefixados com `[REQ-<id>]`. |
+| 3 | Rate Limiting | ✅ Implementado (parcial) | `@upstash/ratelimit` ativo na borda para IPs com assinaturas inválidas. Retorna `429` antes do HMAC. **Pendente:** Whitelist de ranges oficiais da Meta. |
+
+**Validação de Testes:** 14 testes passando cobrindo todos os cenários novos.
+
+**Itens pendentes menores (não bloqueiam produção):**
+- Whitelist de IPs oficiais da Meta no Rate Limiter (requer definição operacional externa)
+- Confirmação da política de DLQ no painel do Upstash/QStash em ambiente real (tarefa de DevOps)
+
