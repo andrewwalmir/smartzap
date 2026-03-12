@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
+import { Ratelimit } from '@upstash/ratelimit'
 
 export const dynamic = 'force-dynamic' // Prevent caching of verification requests
 export const runtime = 'nodejs'
@@ -38,12 +39,108 @@ import { Client as WorkflowClient } from '@upstash/workflow'
 import { Client as QStashClient } from '@upstash/qstash'
 import { getPendingConversation } from '@/lib/builder/workflow-conversations'
 import { extractMetaFlowIdFromFlowToken } from '@/lib/branding'
+import { getRedis } from '@/lib/upstash/redis'
 
 // T046-T048: Inbox integration
 import {
   handleInboundMessage,
   handleDeliveryStatus,
 } from '@/lib/inbox/inbox-webhook'
+
+const WEBHOOK_WORKER_HEADER = 'x-smartzap-webhook-worker'
+const WEBHOOK_CORRELATION_HEADER = 'x-correlation-id'
+const WEBHOOK_FAILURE_CALLBACK_PATH = '/api/webhook/dlq'
+const INVALID_SIGNATURE_LIMIT = 15
+const INVALID_SIGNATURE_WINDOW = '1 m'
+
+const invalidSignatureRatelimit = (() => {
+  const redis = getRedis()
+  if (!redis) return null
+
+  return new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(INVALID_SIGNATURE_LIMIT, INVALID_SIGNATURE_WINDOW),
+    prefix: 'ratelimit:webhook:invalid-signature',
+    analytics: true,
+  })
+})()
+
+class WorkerBusinessError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'WorkerBusinessError'
+  }
+}
+
+function logWithCorrelation(
+  level: 'log' | 'warn' | 'error',
+  correlationId: string | null,
+  ...args: unknown[]
+) {
+  const prefix = correlationId ? `[REQ-${correlationId}]` : '[REQ-unknown]'
+  console[level](prefix, ...args)
+}
+
+function getWebhookCorrelationId(request: NextRequest): string {
+  return String(request.headers.get(WEBHOOK_CORRELATION_HEADER) || '').trim() || randomUUID()
+}
+
+function getRequesterIp(request: NextRequest): string {
+  const forwardedFor = request.headers.get('x-forwarded-for') || ''
+  const firstForwarded = forwardedFor.split(',')[0]?.trim()
+  if (firstForwarded) return firstForwarded
+
+  const realIp = request.headers.get('x-real-ip') || request.headers.get('cf-connecting-ip') || ''
+  return realIp.trim() || 'unknown'
+}
+
+async function guardInvalidSignatureAbuse(input: { request: NextRequest; correlationId: string }): Promise<NextResponse | null> {
+  if (isWebhookWorkerRequest(input.request) || !invalidSignatureRatelimit) return null
+
+  const identifier = getRequesterIp(input.request)
+  const result = await invalidSignatureRatelimit.getRemaining(identifier)
+  if (result.remaining > 0) return null
+
+  logWithCorrelation('warn', input.correlationId, `Webhook blocked by invalid-signature rate limit for ip=${identifier}`)
+  return NextResponse.json(
+    {
+      status: 'rate_limited',
+      error: 'Too Many Requests',
+      correlationId: input.correlationId,
+    },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': String(Math.max(1, Math.ceil((result.reset - Date.now()) / 1000))),
+      },
+    },
+  )
+}
+
+async function registerInvalidSignatureAttempt(input: { request: NextRequest; correlationId: string }) {
+  if (isWebhookWorkerRequest(input.request) || !invalidSignatureRatelimit) return
+
+  const identifier = getRequesterIp(input.request)
+  const result = await invalidSignatureRatelimit.limit(identifier, { ip: identifier })
+  if (!result.success) {
+    logWithCorrelation('warn', input.correlationId, `Webhook invalid-signature rate limit exceeded for ip=${identifier}`)
+  }
+}
+
+function getWebhookFailureCallbackUrl(baseUrl: string | null): string | null {
+  const explicit = String(process.env.WEBHOOK_WORKER_FAILURE_CALLBACK_URL || '').trim()
+  if (explicit) return explicit
+  if (!baseUrl) return null
+  return `${baseUrl}${WEBHOOK_FAILURE_CALLBACK_PATH}`
+}
+
+function classifyWorkerError(error: unknown): { status: number; code: string; retryable: boolean } {
+  if (error instanceof WorkerBusinessError) {
+    return { status: 200, code: 'business_ignored', retryable: false }
+  }
+
+  return { status: 500, code: 'worker_retry', retryable: true }
+}
 
 // Get WhatsApp Access Token from centralized helper
 async function getWhatsAppAccessToken(): Promise<string | null> {
@@ -125,12 +222,13 @@ function verifyMetaWebhookSignature(input: { request: NextRequest; rawBody: stri
 }
 
 function isWebhookWorkerRequest(request: NextRequest): boolean {
-  return request.headers.get('x-smartzap-webhook-worker') === '1'
+  return request.headers.get(WEBHOOK_WORKER_HEADER) === '1'
 }
 
 async function enqueueWebhookProcessingBestEffort(input: {
   rawBody: string
   signatureHeader: string | null
+  correlationId: string
 }): Promise<boolean> {
   const token = String(process.env.QSTASH_TOKEN || '').trim()
   if (!token) return false
@@ -147,7 +245,8 @@ async function enqueueWebhookProcessingBestEffort(input: {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-Hub-Signature-256': signatureHeader,
-    'x-smartzap-webhook-worker': '1',
+    [WEBHOOK_WORKER_HEADER]: '1',
+    [WEBHOOK_CORRELATION_HEADER]: input.correlationId,
   }
 
   const apiKey = String(process.env.SMARTZAP_ADMIN_KEY || process.env.SMARTZAP_API_KEY || '').trim()
@@ -167,6 +266,7 @@ async function enqueueWebhookProcessingBestEffort(input: {
       headers,
       retries: 5,
       deduplicationId: dedupeId,
+      failureCallback: getWebhookFailureCallbackUrl(baseUrl) || undefined,
     })
     return true
   } catch (error) {
@@ -575,13 +675,18 @@ export async function GET(request: NextRequest) {
 // Webhook Event Receiver
 // Supabase: fonte da verdade para status de mensagens
 export async function POST(request: NextRequest) {
+  const correlationId = getWebhookCorrelationId(request)
+  const rateLimited = await guardInvalidSignatureAbuse({ request, correlationId })
+  if (rateLimited) return rateLimited
+
   const rawBody = await request.text().catch(() => '')
   if (!rawBody) {
-    return NextResponse.json({ status: 'ignored', error: 'Body inválido' }, { status: 400 })
+    return NextResponse.json({ status: 'ignored', error: 'Body inválido', correlationId }, { status: 400 })
   }
 
   if (!verifyMetaWebhookSignature({ request, rawBody })) {
-    return NextResponse.json({ status: 'unauthorized' }, { status: 401 })
+    await registerInvalidSignatureAttempt({ request, correlationId })
+    return NextResponse.json({ status: 'unauthorized', correlationId }, { status: 401 })
   }
 
   const body = (() => {
@@ -592,32 +697,33 @@ export async function POST(request: NextRequest) {
     }
   })()
   if (!body) {
-    return NextResponse.json({ status: 'ignored', error: 'Body inválido' }, { status: 400 })
+    return NextResponse.json({ status: 'ignored', error: 'Body inválido', correlationId }, { status: 400 })
   }
   if (body.object !== 'whatsapp_business_account') {
-    return NextResponse.json({ status: 'ignored' })
+    return NextResponse.json({ status: 'ignored', correlationId })
   }
 
   if (!isWebhookWorkerRequest(request)) {
     const enqueued = await enqueueWebhookProcessingBestEffort({
       rawBody,
       signatureHeader: request.headers.get('x-hub-signature-256') || request.headers.get('X-Hub-Signature-256'),
+      correlationId,
     })
 
     if (enqueued) {
-      return NextResponse.json({ status: 'accepted', queued: true })
+      return NextResponse.json({ status: 'accepted', queued: true, correlationId })
     }
   }
 
   const supabaseAdmin = getSupabaseAdmin()
   if (!supabaseAdmin) {
-    return NextResponse.json({ status: 'error', error: 'Supabase not configured' }, { status: 500 })
+    return NextResponse.json({ status: 'error', error: 'Supabase not configured', correlationId }, { status: 500 })
   }
 
 
   // Evita logs gigantes: guardamos payload estruturado em DB (whatsapp_status_events)
   // e fazemos logs de alto nível aqui.
-  console.log('📨 Webhook received:', JSON.stringify({
+  logWithCorrelation('log', correlationId, 'Webhook received:', JSON.stringify({
     object: body?.object,
     entryCount: Array.isArray(body?.entry) ? body.entry.length : 0,
   }))
@@ -846,6 +952,7 @@ export async function POST(request: NextRequest) {
                     errorDetails,
                     category: mappedError.category,
                     retryable: mappedError.retryable,
+                    correlationId,
                   },
                 })
               }
@@ -945,6 +1052,7 @@ export async function POST(request: NextRequest) {
                   messageId,
                   status,
                   eventTsIso: eventTsIso || null,
+                  correlationId,
                 },
               })
             }
@@ -989,7 +1097,7 @@ export async function POST(request: NextRequest) {
               await enqueueWebhookStatusReconcileBestEffort('apply_error')
             }
             return NextResponse.json(
-              { status: 'error', error: e instanceof Error ? e.message : String(e) },
+              { status: 'error', error: e instanceof Error ? e.message : String(e), correlationId },
               { status: 500 }
             )
           }
@@ -1004,7 +1112,7 @@ export async function POST(request: NextRequest) {
           const messageType = message.type
           const text = extractInboundText(message)
           const phoneNumberId = change?.value?.metadata?.phone_number_id || null
-          console.log(`📩 Incoming message from ${from}: ${messageType}${text ? ` | text="${text}"` : ''}`)
+          logWithCorrelation('log', correlationId, `Incoming message from ${from}: ${messageType}${text ? ` | text="${text}"` : ''}`)
 
           // =================================================================
           // T046-T047: Persist to Inbox and trigger AI if mode=bot
@@ -1019,10 +1127,10 @@ export async function POST(request: NextRequest) {
               mediaUrl: message.image?.url || message.video?.url || message.audio?.url || message.document?.url || null,
               phoneNumberId: phoneNumberId || undefined,
             })
-            console.log(`📥 Inbox: conversation=${inboxResult.conversationId}, message=${inboxResult.messageId}, ai=${inboxResult.triggeredAI}`)
+            logWithCorrelation('log', correlationId, `Inbox: conversation=${inboxResult.conversationId}, message=${inboxResult.messageId}, ai=${inboxResult.triggeredAI}`)
           } catch (inboxError) {
             // Best-effort: don't fail webhook if inbox persist fails
-            console.warn('[Webhook] Failed to persist to inbox:', inboxError)
+            logWithCorrelation('warn', correlationId, '[Webhook] Failed to persist to inbox:', inboxError)
           }
 
           // =================================================================
@@ -1051,7 +1159,7 @@ export async function POST(request: NextRequest) {
                 )
                 continue
               } catch (e) {
-                console.error('[Webhook] Failed to resume conversation:', e)
+                logWithCorrelation('error', correlationId, '[Webhook] Failed to resume conversation:', e)
               }
             }
           }
@@ -1084,12 +1192,15 @@ export async function POST(request: NextRequest) {
                 workflowRunId: `wa_${String(message?.id || '').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
                 body: {
                   workflowId: targetWorkflowId,
-                  input: { from, to: from, message: text },
+                  input: { from, to: from, message: text, correlationId },
                 },
-                headers: Object.keys(headers).length > 0 ? headers : undefined,
+                headers: {
+                  ...(Object.keys(headers).length > 0 ? headers : {}),
+                  [WEBHOOK_CORRELATION_HEADER]: correlationId,
+                },
               })
             } catch (e) {
-              console.error('[Webhook] Failed to trigger builder workflow:', e)
+              logWithCorrelation('error', correlationId, '[Webhook] Failed to trigger builder workflow:', e)
             }
           }
 
@@ -1642,9 +1753,23 @@ export async function POST(request: NextRequest) {
       }
     }
   } catch (error) {
-    console.error('Error processing webhook:', error)
+    const failure = classifyWorkerError(error)
+    logWithCorrelation(
+      failure.retryable ? 'error' : 'warn',
+      correlationId,
+      'Error processing webhook:',
+      error,
+    )
+
+    return NextResponse.json(
+      {
+        status: failure.retryable ? 'error' : 'ignored',
+        error: error instanceof Error ? error.message : String(error),
+        correlationId,
+      },
+      { status: failure.status },
+    )
   }
 
-  // Always return 200 to acknowledge receipt (Meta requirement)
-  return NextResponse.json({ status: 'ok' })
+  return NextResponse.json({ status: 'ok', correlationId })
 }

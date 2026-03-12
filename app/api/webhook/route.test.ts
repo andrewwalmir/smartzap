@@ -16,12 +16,19 @@ const mockHandleInboundMessage = vi.fn()
 const mockWorkflowTrigger = vi.fn()
 const mockQStashPublish = vi.fn()
 const mockFlowSubmissionUpsert = vi.fn()
+const mockGetRedis = vi.fn()
+const mockRateLimit = vi.fn()
+const mockRateGetRemaining = vi.fn()
 
 vi.mock('@/lib/supabase', () => ({
   getSupabaseAdmin: mockGetSupabaseAdmin,
   supabase: {
     from: mockSupabaseFrom,
   },
+}))
+
+vi.mock('@/lib/upstash/redis', () => ({
+  getRedis: mockGetRedis,
 }))
 
 vi.mock('@/lib/verify-token', () => ({
@@ -117,6 +124,17 @@ vi.mock('@upstash/qstash', () => ({
   }),
 }))
 
+vi.mock('@upstash/ratelimit', () => ({
+  Ratelimit: class MockRatelimit {
+    static slidingWindow = vi.fn(() => 'sliding-window')
+
+    constructor() {}
+
+    limit = mockRateLimit
+    getRemaining = mockRateGetRemaining
+  },
+}))
+
 describe('/api/webhook', () => {
   const env = { ...process.env }
 
@@ -148,6 +166,19 @@ describe('/api/webhook', () => {
     })
     mockWorkflowTrigger.mockResolvedValue({ workflowRunId: 'run-1' })
     mockQStashPublish.mockResolvedValue({ messageId: 'qstash-msg-1' })
+    mockGetRedis.mockReturnValue(null)
+    mockRateLimit.mockResolvedValue({
+      success: true,
+      limit: 15,
+      remaining: 14,
+      reset: Date.now() + 60_000,
+      pending: Promise.resolve(),
+    })
+    mockRateGetRemaining.mockResolvedValue({
+      limit: 15,
+      remaining: 10,
+      reset: Date.now() + 60_000,
+    })
     mockGetVerifyToken.mockResolvedValue('verify-me')
     mockSupabaseFrom.mockImplementation((table: string) => {
       if (table === 'workflow_versions') {
@@ -239,7 +270,35 @@ describe('/api/webhook', () => {
     const response = await POST(request)
 
     expect(response.status).toBe(401)
-    await expect(response.json()).resolves.toMatchObject({ status: 'unauthorized' })
+    await expect(response.json()).resolves.toMatchObject({ status: 'unauthorized', correlationId: expect.any(String) })
+  })
+
+  it('returns 429 before signature comparison when invalid-signature IP is already blocked', async () => {
+    mockGetRedis.mockReturnValue({} as any)
+    mockRateGetRemaining.mockResolvedValue({
+      limit: 15,
+      remaining: 0,
+      reset: Date.now() + 60_000,
+    })
+
+    vi.resetModules()
+    const { POST } = await import('./route')
+    const request = new NextRequest('http://localhost:3000/api/webhook', {
+      method: 'POST',
+      headers: {
+        'x-forwarded-for': '203.0.113.10',
+        'X-Hub-Signature-256': 'sha256=invalid',
+      },
+      body: JSON.stringify({ object: 'whatsapp_business_account' }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(429)
+    await expect(response.json()).resolves.toMatchObject({
+      status: 'rate_limited',
+      correlationId: expect.any(String),
+    })
   })
 
   it('returns 400 when body is not valid JSON', async () => {
@@ -291,15 +350,18 @@ describe('/api/webhook', () => {
       await expect(response.json()).resolves.toMatchObject({
         status: 'accepted',
         queued: true,
+        correlationId: expect.any(String),
       })
       expect(mockQStashPublish).toHaveBeenCalledTimes(1)
       expect(mockQStashPublish).toHaveBeenCalledWith(
         expect.objectContaining({
           url: 'https://hangarzap.example.com/api/webhook',
           body: rawBody,
+          failureCallback: 'https://hangarzap.example.com/api/webhook/dlq',
           headers: expect.objectContaining({
             'X-Hub-Signature-256': expect.stringMatching(/^sha256=/),
             'x-smartzap-webhook-worker': '1',
+            'x-correlation-id': expect.any(String),
           }),
         }),
       )
@@ -344,6 +406,26 @@ describe('/api/webhook', () => {
           }),
         }),
       )
+    })
+
+    it('returns 500 in worker mode when an infrastructure error escapes processing', async () => {
+      mockGetPendingConversation.mockRejectedValueOnce(new Error('db unavailable'))
+
+      const { POST } = await import('./route')
+      const rawBody = JSON.stringify(webhookFixtures.inboundText)
+      const request = createSignedRequest(rawBody, {
+        'x-smartzap-webhook-worker': '1',
+        'x-correlation-id': 'req-123',
+      })
+
+      const response = await POST(request)
+
+      expect(response.status).toBe(500)
+      await expect(response.json()).resolves.toMatchObject({
+        status: 'error',
+        error: 'db unavailable',
+        correlationId: 'req-123',
+      })
     })
 
     it('consumes button reply fixture and uses the button title as workflow input', async () => {
