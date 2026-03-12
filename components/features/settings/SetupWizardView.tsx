@@ -1,10 +1,10 @@
 import React from 'react';
-import { 
-  Database, 
-  Zap, 
-  MessageSquare, 
-  ExternalLink, 
-  Check, 
+import {
+  Database,
+  Zap,
+  MessageSquare,
+  ExternalLink,
+  Check,
   AlertCircle,
   Loader2,
   RefreshCw,
@@ -60,7 +60,7 @@ export const SetupWizardView: React.FC<SetupWizardViewProps> = ({
           Configuração Inicial
         </h1>
         <p className="text-gray-400 max-w-md mx-auto">
-          Para usar o SmartZap, você precisa configurar alguns serviços. 
+          Para usar o HangarZap, você precisa configurar alguns serviços.
           Siga os passos abaixo na ordem indicada.
         </p>
       </div>
@@ -81,7 +81,7 @@ export const SetupWizardView: React.FC<SetupWizardViewProps> = ({
           </button>
         </div>
         <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-          <div 
+          <div
             className="h-full bg-linear-to-r from-primary-500 to-emerald-500 transition-all duration-500"
             style={{ width: `${progressPercent}%` }}
           />
@@ -94,7 +94,7 @@ export const SetupWizardView: React.FC<SetupWizardViewProps> = ({
           const isPending = step.status === 'pending';
           const isConfigured = step.status === 'configured';
           const isError = step.status === 'error';
-          
+
           // Determine if step should be highlighted (next to do)
           const previousStepsConfigured = steps
             .slice(0, index)
@@ -105,26 +105,24 @@ export const SetupWizardView: React.FC<SetupWizardViewProps> = ({
           return (
             <div
               key={step.id}
-              className={`relative rounded-2xl border transition-all duration-300 overflow-hidden ${
-                isConfigured
+              className={`relative rounded-2xl border transition-all duration-300 overflow-hidden ${isConfigured
                   ? 'bg-emerald-500/5 border-emerald-500/30'
                   : isError
                     ? 'bg-red-500/5 border-red-500/30'
                     : isNextStep
                       ? 'bg-primary-500/5 border-primary-500/30 ring-2 ring-primary-500/20'
                       : 'bg-zinc-900/50 border-white/10 opacity-60'
-              }`}
+                }`}
             >
               {/* Step number badge */}
-              <div className={`absolute top-4 left-4 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                isConfigured
+              <div className={`absolute top-4 left-4 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${isConfigured
                   ? 'bg-emerald-500 text-white'
                   : isError
                     ? 'bg-red-500 text-white'
                     : isNextStep
                       ? 'bg-primary-500 text-white'
                       : 'bg-zinc-700 text-gray-400'
-              }`}>
+                }`}>
                 {isConfigured ? <Check size={16} /> : index + 1}
               </div>
 
@@ -132,9 +130,8 @@ export const SetupWizardView: React.FC<SetupWizardViewProps> = ({
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className={`font-semibold ${
-                        isConfigured ? 'text-emerald-400' : isError ? 'text-red-400' : 'text-white'
-                      }`}>
+                      <h3 className={`font-semibold ${isConfigured ? 'text-emerald-400' : isError ? 'text-red-400' : 'text-white'
+                        }`}>
                         {step.title}
                       </h3>
                       {step.isRequired && (
@@ -170,11 +167,10 @@ export const SetupWizardView: React.FC<SetupWizardViewProps> = ({
                       href={step.actionUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-all ${
-                        isNextStep
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-all ${isNextStep
                           ? 'bg-primary-500 hover:bg-primary-400 text-white'
                           : 'bg-zinc-700 text-gray-400 cursor-not-allowed'
-                      }`}
+                        }`}
                       onClick={(e) => {
                         if (!isNextStep) {
                           e.preventDefault();
@@ -234,7 +230,7 @@ export const SetupWizardView: React.FC<SetupWizardViewProps> = ({
                 Infraestrutura pronta!
               </h4>
               <p className="text-sm text-amber-200/70">
-                QStash está configurado. Agora você pode adicionar suas credenciais 
+                QStash está configurado. Agora você pode adicionar suas credenciais
                 do WhatsApp diretamente na tela de configurações acima.
               </p>
               {onContinueToSettings && (

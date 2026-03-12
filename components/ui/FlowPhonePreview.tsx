@@ -33,16 +33,16 @@ function parseFlowJson(flowJson: unknown): ParsedFlow {
     version: typeof (flowJson as any).version === 'string' ? (flowJson as any).version : undefined,
     screen: isPlainObject(screen)
       ? {
-          id: typeof screen.id === 'string' ? screen.id : undefined,
-          title: typeof screen.title === 'string' ? screen.title : undefined,
-          terminal: typeof screen.terminal === 'boolean' ? screen.terminal : undefined,
-          layout: layout
-            ? {
-                type: typeof (layout as any).type === 'string' ? (layout as any).type : undefined,
-                children: Array.isArray((layout as any).children) ? (layout as any).children : [],
-              }
-            : undefined,
-        }
+        id: typeof screen.id === 'string' ? screen.id : undefined,
+        title: typeof screen.title === 'string' ? screen.title : undefined,
+        terminal: typeof screen.terminal === 'boolean' ? screen.terminal : undefined,
+        layout: layout
+          ? {
+            type: typeof (layout as any).type === 'string' ? (layout as any).type : undefined,
+            children: Array.isArray((layout as any).children) ? (layout as any).children : [],
+          }
+          : undefined,
+      }
       : undefined,
   }
 }
@@ -190,7 +190,7 @@ export function FlowPhonePreview(props: {
 }) {
   const parsed = useMemo(() => parseFlowJson(props.flowJson), [props.flowJson])
 
-  const businessName = props.businessName || 'SmartZap Business'
+  const businessName = props.businessName || 'HangarZap Business'
   const size = props.size || 'md'
 
   const sizeConfig =
@@ -204,9 +204,8 @@ export function FlowPhonePreview(props: {
 
   return (
     <div
-      className={`relative mx-auto border-zinc-800 bg-zinc-950 ${sizeConfig.border} rounded-[2.5rem] ${sizeConfig.height} ${sizeConfig.width} shadow-2xl flex flex-col overflow-hidden ${
-        props.className || ''
-      }`}
+      className={`relative mx-auto border-zinc-800 bg-zinc-950 ${sizeConfig.border} rounded-[2.5rem] ${sizeConfig.height} ${sizeConfig.width} shadow-2xl flex flex-col overflow-hidden ${props.className || ''
+        }`}
     >
       {/* Notch */}
       <div className={`absolute top-0 left-1/2 -translate-x-1/2 ${sizeConfig.notch} bg-zinc-800 rounded-b-xl z-20`} />

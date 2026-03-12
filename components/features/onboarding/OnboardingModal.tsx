@@ -143,7 +143,7 @@ function TutorialWizard({
         return (
           <CreatePermanentTokenStep
             currentToken=""
-            onTokenUpdate={async () => {}}
+            onTokenUpdate={async () => { }}
             onNext={onClose}
             onBack={handleBack}
             onSkip={onClose}
@@ -403,7 +403,7 @@ export function OnboardingModal({ isConnected, onSaveCredentials, onMarkComplete
                   <span className="text-3xl">🚀</span>
                 </div>
               </div>
-              <DialogTitle className="text-2xl">Bem-vindo ao SmartZap!</DialogTitle>
+              <DialogTitle className="text-2xl">Bem-vindo ao HangarZap!</DialogTitle>
               <DialogDescription className="text-base mt-2">
                 Para enviar mensagens pelo WhatsApp, você precisa conectar uma conta do WhatsApp Business API.
               </DialogDescription>

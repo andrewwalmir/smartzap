@@ -121,7 +121,7 @@ const CompactSidebar = memo(function CompactSidebar({
         <div
           className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--ds-border-default)] bg-linear-to-br from-primary-600 to-primary-800 shadow-lg shadow-primary-900/20"
           role="img"
-          aria-label="Logo SmartZap"
+          aria-label="Logo HangarZap"
         >
           <Zap className="text-white" size={18} fill="currentColor" aria-hidden="true" />
         </div>
@@ -129,11 +129,10 @@ const CompactSidebar = memo(function CompactSidebar({
           {navItems.map((item) => {
             const isDisabled = item.disabled
             const isActive = pathname === item.path
-            const baseClassName = `group relative flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-[var(--ds-text-secondary)] transition-colors ${
-              isDisabled
+            const baseClassName = `group relative flex h-9 w-9 items-center justify-center rounded-lg border border-transparent text-[var(--ds-text-secondary)] transition-colors ${isDisabled
                 ? 'opacity-50 cursor-not-allowed'
                 : 'hover:border-[var(--ds-border-default)] hover:bg-[var(--ds-bg-hover)] hover:text-[var(--ds-text-primary)] focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-bg-base)]'
-            } ${isActive ? 'bg-[var(--ds-bg-hover)] text-[var(--ds-text-primary)]' : ''}`
+              } ${isActive ? 'bg-[var(--ds-bg-hover)] text-[var(--ds-text-primary)]' : ''}`
 
             // Inbox usa badge dinâmico, outros usam badge estático
             const badge = item.path === '/inbox' ? (
@@ -240,12 +239,12 @@ const ExpandedSidebar = memo(function ExpandedSidebar({
           <div
             className="w-10 h-10 bg-linear-to-br from-primary-600 to-primary-800 rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-primary-900/20 border border-[var(--ds-border-default)]"
             role="img"
-            aria-label="Logo SmartZap"
+            aria-label="Logo HangarZap"
           >
             <Zap className="text-white" size={20} fill="currentColor" aria-hidden="true" />
           </div>
           <div>
-            <span className="text-xl font-bold text-[var(--ds-text-primary)] tracking-tight block">SmartZap</span>
+            <span className="text-xl font-bold text-[var(--ds-text-primary)] tracking-tight block">HangarZap</span>
           </div>
           <button
             type="button"
@@ -284,13 +283,12 @@ const ExpandedSidebar = memo(function ExpandedSidebar({
             {navItems.map((item) => {
               const isDisabled = item.disabled
               const isActive = pathname === item.path
-              const baseClassName = `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 mb-1 ${
-                isDisabled
+              const baseClassName = `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 mb-1 ${isDisabled
                   ? 'opacity-50 cursor-not-allowed text-[var(--ds-text-muted)]'
                   : isActive
                     ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400 font-medium border border-primary-500/20 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
                     : 'text-[var(--ds-text-secondary)] hover:bg-[var(--ds-bg-hover)] hover:text-[var(--ds-text-primary)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500'
-              }`
+                }`
 
               // Inbox usa badge dinâmico, outros usam badge estático
               const badge = item.path === '/inbox' ? (
@@ -351,11 +349,11 @@ const ExpandedSidebar = memo(function ExpandedSidebar({
               aria-hidden="true"
             >
               <span className="text-lg font-bold text-primary-600 dark:text-primary-400">
-                {(companyName || 'SmartZap').charAt(0).toUpperCase()}
+                {(companyName || 'HangarZap').charAt(0).toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0 text-left">
-              <p className="text-sm font-medium text-[var(--ds-text-primary)] truncate">{companyName || 'SmartZap'}</p>
+              <p className="text-sm font-medium text-[var(--ds-text-primary)] truncate">{companyName || 'HangarZap'}</p>
               <p className="text-xs text-[var(--ds-text-muted)] truncate">Administrador</p>
             </div>
             {isLoggingOut ? (

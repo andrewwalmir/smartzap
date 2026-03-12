@@ -418,7 +418,7 @@ export const useSettingsController = () => {
       const wabaOverride = data?.wabaOverride as Record<string, unknown> | undefined;
       const isSmartZap = wabaOverride?.isSmartZap;
       if (isSmartZap) {
-        toast.success('SmartZap ativado para WABA!', {
+        toast.success('HangarZap ativado para WABA!', {
           description: 'Todos os números sem override #1 usarão este webhook.',
         });
       } else {

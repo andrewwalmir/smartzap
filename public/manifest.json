@@ -1,6 +1,6 @@
 {
-  "name": "SmartZap Atendimento",
-  "short_name": "SmartZap",
+  "name": "HangarZap Atendimento",
+  "short_name": "HangarZap",
   "description": "Central de atendimento WhatsApp com IA",
   "start_url": "/atendimento",
   "scope": "/atendimento",
@@ -50,7 +50,10 @@
       "label": "Dashboard de atendimento"
     }
   ],
-  "categories": ["business", "productivity"],
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "lang": "pt-BR",
   "dir": "ltr",
   "prefer_related_applications": false,
@@ -60,7 +63,12 @@
       "short_name": "Urgentes",
       "description": "Ver conversas que precisam de atenção",
       "url": "/atendimento?filter=urgent",
-      "icons": [{ "src": "/icons/shortcut-urgent.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icons/shortcut-urgent.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ]
 }

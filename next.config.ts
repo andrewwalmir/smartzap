@@ -57,7 +57,7 @@ const nextConfig: NextConfig = {
 
   // Environment variables exposed to client
   env: {
-    NEXT_PUBLIC_APP_NAME: 'SmartZap',
+    NEXT_PUBLIC_APP_NAME: 'HangarZap',
     NEXT_PUBLIC_APP_VERSION: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || '1.0.0',
   },
 

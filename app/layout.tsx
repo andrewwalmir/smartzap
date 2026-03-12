@@ -22,7 +22,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'SmartZap - WhatsApp Manager',
+  title: 'HangarZap - WhatsApp Manager',
   description: 'Plataforma de automação de marketing via WhatsApp',
   manifest: '/manifest.json',
   icons: {
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'SmartZap',
+    title: 'HangarZap',
   },
   formatDetection: {
     telephone: false,

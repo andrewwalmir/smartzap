@@ -100,7 +100,7 @@ export function WebhookFunnelVisualization({
                           <span className="font-medium text-sm">{level.name}</span>
                           {level.isActive && level.isSmartZap && (
                             <span className="px-1.5 py-0.5 bg-emerald-500/30 text-emerald-300 text-[10px] font-bold rounded">
-                              SMARTZAP
+                              HANGARZAP
                             </span>
                           )}
                           {level.isActive && !level.isSmartZap && level.url && (

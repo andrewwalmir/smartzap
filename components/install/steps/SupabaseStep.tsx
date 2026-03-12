@@ -117,7 +117,7 @@ export function SupabaseStep({ onComplete }: SupabaseStepProps) {
 
       // ========== 2. CRIAR PROJETO ==========
       setPhase('creating');
-      setStatusMessage('Criando projeto SmartZap...');
+      setStatusMessage('Criando projeto HangarZap...');
 
       const dbPass = generateDbPassword();
       let projectName = 'smartzap';
@@ -355,13 +355,12 @@ export function SupabaseStep({ onComplete }: SupabaseStepProps) {
               return (
                 <div
                   key={step}
-                  className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                    stepIdx < currentIdx
+                  className={`w-2.5 h-2.5 rounded-full transition-colors ${stepIdx < currentIdx
                       ? 'bg-emerald-500'
                       : stepIdx === currentIdx
-                      ? 'bg-emerald-500 animate-pulse'
-                      : 'bg-zinc-700'
-                  }`}
+                        ? 'bg-emerald-500 animate-pulse'
+                        : 'bg-zinc-700'
+                    }`}
                 />
               );
             })}
@@ -398,7 +397,7 @@ export function SupabaseStep({ onComplete }: SupabaseStepProps) {
           <div className="flex items-center gap-2 text-emerald-400">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <p className="text-xs text-left">
-              Criaremos automaticamente um projeto dedicado para o SmartZap
+              Criaremos automaticamente um projeto dedicado para o HangarZap
             </p>
           </div>
         </div>
