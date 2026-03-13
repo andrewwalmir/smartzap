@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
   inboxService,
   type SendMessageParams,
@@ -295,7 +296,7 @@ export function useMessages(conversationId: string | null) {
         ai_response_id: null,
         ai_sentiment: null,
         ai_sources: null,
-        payload: null,
+        payload: params.message_payload ?? null,
       }
 
       queryClient.setQueryData(
@@ -362,6 +363,13 @@ export function useMessages(conversationId: string | null) {
           }
         }
       )
+
+      if (_ instanceof Error && _.message.startsWith('422:')) {
+        const message = _.message.replace(/^422:\s*/, '')
+        toast.error(message, {
+          description: 'Clique em 📋 para enviar um template.',
+        })
+      }
     },
   })
 

@@ -116,7 +116,8 @@ export async function sendMessage(
   content: string,
   messageType: 'text' | 'template' = 'text',
   templateName?: string,
-  templateParams?: Record<string, string[]>
+  templateParams?: Record<string, string[]>,
+  messagePayload?: Record<string, unknown>
 ): Promise<InboxMessage> {
   // Get conversation to get phone number
   const conversation = await getConversationById(conversationId)
@@ -165,6 +166,7 @@ export async function sendMessage(
     content,
     message_type: messageType,
     whatsapp_message_id: whatsappResult.messageId,
+    payload: messagePayload,
   })
 
   // Update delivery status based on send result

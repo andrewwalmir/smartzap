@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { listMessages, sendMessage } from '@/lib/inbox/inbox-service'
+import { getConversation, listMessages, sendMessage } from '@/lib/inbox/inbox-service'
+import { isWindowOpen } from '@/lib/inbox/conversation-window'
 
 // Regex para ISO 8601 datetime com precisão variável (Supabase pode retornar 1-6 dígitos)
 const ISO_DATETIME_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/
@@ -21,6 +22,7 @@ const postSchema = z.object({
   message_type: z.enum(['text', 'template']).default('text'),
   template_name: z.string().optional(),
   template_params: z.record(z.string(), z.array(z.string())).optional(),
+  message_payload: z.record(z.string(), z.unknown()).optional(),
 })
 
 interface RouteParams {
@@ -79,7 +81,7 @@ export async function POST(
       )
     }
 
-    const { content, message_type, template_name, template_params } = parsed.data
+    const { content, message_type, template_name, template_params, message_payload } = parsed.data
 
     // Validate template requirements
     if (message_type === 'template' && !template_name) {
@@ -89,12 +91,27 @@ export async function POST(
       )
     }
 
+    if (message_type === 'text') {
+      const conversation = await getConversation(id)
+      if (!conversation) {
+        return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+      }
+
+      if (!isWindowOpen(conversation.last_message_at)) {
+        return NextResponse.json(
+          { error: 'Janela de 24h expirou. Use um template para reabrir a conversa.' },
+          { status: 422 },
+        )
+      }
+    }
+
     const message = await sendMessage(
       id,
       content,
       message_type,
       template_name,
-      template_params
+      template_params,
+      message_payload,
     )
 
     return NextResponse.json(message, { status: 201 })
