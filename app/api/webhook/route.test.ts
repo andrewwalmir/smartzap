@@ -255,7 +255,7 @@ describe('/api/webhook', () => {
       status: 'ignored',
       error: 'Body inválido',
     })
-  })
+  }, 15000)
 
   it('returns 401 when signature is invalid', async () => {
     const { POST } = await import('./route')

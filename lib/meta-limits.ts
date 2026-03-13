@@ -459,7 +459,7 @@ export function cacheLimits(limits: AccountLimits): void {
  */
 export function areLimitsStale(limits: AccountLimits | null): boolean {
   if (!limits) return true;
-  const lastFetched = new Date(limits.lastFetched);
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  return lastFetched < oneHourAgo;
+  const lastFetchedMs = new Date(limits.lastFetched).getTime();
+  const ageMs = Date.now() - lastFetchedMs;
+  return ageMs > 60 * 60 * 1000;
 }
