@@ -12,9 +12,10 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { Send, Loader2, Sparkles } from 'lucide-react'
+import { Send, Loader2, Sparkles, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
@@ -36,6 +37,8 @@ export interface MessageInputProps {
   conversationId?: string | null
   /** Whether to show AI suggest button */
   showAISuggest?: boolean
+  templateMode?: boolean
+  onOpenTemplatePicker?: () => void
 }
 
 export function MessageInput({
@@ -48,6 +51,8 @@ export function MessageInput({
   onRefreshQuickReplies,
   conversationId,
   showAISuggest = false,
+  templateMode = false,
+  onOpenTemplatePicker,
 }: MessageInputProps) {
   const [value, setValue] = useState('')
   const [isLoadingSuggestion, setIsLoadingSuggestion] = useState(false)
@@ -250,6 +255,18 @@ export function MessageInput({
       )}
 
       <div className="flex items-end gap-2 p-3">
+        {templateMode ? (
+          <Button
+            type="button"
+            className="w-full justify-center"
+            onClick={onOpenTemplatePicker}
+            disabled={disabled || isSending}
+          >
+            {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+            Selecionar Template
+          </Button>
+        ) : (
+          <>
         {/* Quick replies */}
         <QuickRepliesPopover
           quickReplies={quickReplies}
@@ -283,6 +300,30 @@ export function MessageInput({
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs">
               Sugestão IA
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {onOpenTemplatePicker && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Enviar template"
+                onClick={onOpenTemplatePicker}
+                disabled={disabled || isSending}
+                className={cn(
+                  'h-9 w-9 shrink-0 rounded-lg flex items-center justify-center transition-all duration-150',
+                  disabled || isSending
+                    ? 'text-[var(--ds-text-muted)] cursor-not-allowed'
+                    : 'text-[var(--ds-text-secondary)] hover:text-[var(--ds-text-primary)] hover:bg-[var(--ds-bg-hover)]',
+                )}
+              >
+                <FileText className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+              Enviar template
             </TooltipContent>
           </Tooltip>
         )}
@@ -384,6 +425,8 @@ export function MessageInput({
             {canSend ? 'Enviar · ⌘↵' : 'Digite uma mensagem'}
           </TooltipContent>
         </Tooltip>
+          </>
+        )}
       </div>
     </div>
   )

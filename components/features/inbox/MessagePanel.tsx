@@ -16,6 +16,10 @@ import { cn } from '@/lib/utils'
 import { MessageBubble } from './MessageBubble'
 import { MessageInput } from './MessageInput'
 import { ConversationHeader } from './ConversationHeader'
+import { TemplatePicker } from './TemplatePicker'
+import { WindowClosedBanner } from './WindowClosedBanner'
+import { useConversationWindow } from '@/hooks/useConversationWindow'
+import type { Template } from '@/types'
 import type {
   InboxConversation,
   InboxMessage,
@@ -46,6 +50,7 @@ export interface MessagePanelProps {
 
   // Actions
   onSendMessage: (content: string) => void
+  onSendTemplate?: (template: Template, values: Record<string, string>) => Promise<void>
   onModeToggle: () => void
   onClose: () => void
   onReopen: () => void
@@ -79,6 +84,7 @@ export function MessagePanel({
   hasMoreMessages,
   onLoadMore,
   onSendMessage,
+  onSendTemplate,
   onModeToggle,
   onClose,
   onReopen,
@@ -97,6 +103,8 @@ export function MessagePanel({
   const isAtBottomRef = useRef(true)
   const prevMessagesLengthRef = useRef(messages.length)
   const [showScrollButton, setShowScrollButton] = useState(false)
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
+  const { windowOpen, elapsedLabel, hasMessages } = useConversationWindow(conversation)
 
   // Check if user is at bottom
   const checkIfAtBottom = useCallback(() => {
@@ -183,6 +191,7 @@ export function MessagePanel({
   }
 
   const isOpen = conversation?.status === 'open'
+  const canSendText = isOpen && windowOpen
 
   return (
     <div className="flex flex-col h-full bg-[var(--ds-bg-base)] relative">
@@ -284,22 +293,46 @@ export function MessagePanel({
         </button>
       )}
 
+      {conversation && !windowOpen && (
+        <WindowClosedBanner
+          hasMessages={hasMessages}
+          elapsedLabel={elapsedLabel}
+          onSelectTemplate={onSendTemplate ? () => setTemplatePickerOpen(true) : undefined}
+        />
+      )}
+
       {/* Input area */}
       <MessageInput
         onSend={onSendMessage}
         isSending={isSending}
-        disabled={!isOpen}
+        disabled={!isOpen || !canSendText}
         placeholder={
-          isOpen
-            ? 'Mensagem...'
-            : 'Conversa fechada'
+          !isOpen
+            ? 'Conversa fechada'
+            : canSendText
+              ? 'Mensagem...'
+              : 'Selecione um template para enviar...'
         }
         quickReplies={quickReplies}
         quickRepliesLoading={quickRepliesLoading}
         onRefreshQuickReplies={onRefreshQuickReplies}
         conversationId={conversation?.id}
-        showAISuggest={isOpen && conversation?.mode === 'human'}
+        showAISuggest={canSendText && conversation?.mode === 'human'}
+        templateMode={isOpen && !windowOpen}
+        onOpenTemplatePicker={onSendTemplate ? () => setTemplatePickerOpen(true) : undefined}
       />
+
+      {onSendTemplate && (
+        <TemplatePicker
+          open={templatePickerOpen}
+          onOpenChange={setTemplatePickerOpen}
+          isSending={isSending}
+          onSendTemplate={async (template, values) => {
+            await onSendTemplate(template, values)
+            setTemplatePickerOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }
