@@ -46,6 +46,7 @@ export function InboxClientWrapper({ initialData, initialConversationId }: Inbox
         hasMoreMessages={inbox.hasMoreMessages}
         onLoadMoreMessages={inbox.onLoadMoreMessages}
         onSendMessage={inbox.onSendMessage}
+        onSendTemplate={inbox.onSendTemplate}
         isSending={inbox.isSending}
         // Labels
         labels={inbox.labels}

@@ -48,6 +48,7 @@ export interface SendMessageParams {
   message_type?: 'text' | 'template'
   template_name?: string
   template_params?: Record<string, string[]>
+  message_payload?: Record<string, unknown>
 }
 
 export interface UpdateConversationParams {
@@ -159,7 +160,7 @@ async function sendMessage(conversationId: string, params: SendMessageParams): P
   })
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Failed to send message' }))
-    throw new Error(error.error || 'Failed to send message')
+    throw new Error(`${response.status}: ${error.error || 'Failed to send message'}`)
   }
   return response.json()
 }

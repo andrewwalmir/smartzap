@@ -4,6 +4,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react'
+import { toast } from 'sonner'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { useConversations, useConversationMutations } from './useConversations'
@@ -12,7 +13,22 @@ import { useLabels } from './useLabels'
 import { useQuickReplies } from './useQuickReplies'
 import { useInboxSettings, getHumanModeTimeoutMs } from './useInboxSettings'
 import { aiAgentService, type UpdateAIAgentParams } from '@/services/aiAgentService'
-import type { ConversationStatus, ConversationMode, ConversationPriority, AIAgent, InboxConversation, InboxLabel, InboxQuickReply } from '@/types'
+import {
+  getTemplateHeaderImageUrl,
+  hasImageHeader,
+  mapTemplateParamsForApi,
+  renderInboxTemplatePreview,
+} from '@/lib/inbox/template-utils'
+import type {
+  ConversationStatus,
+  ConversationMode,
+  ConversationPriority,
+  AIAgent,
+  InboxConversation,
+  InboxLabel,
+  InboxQuickReply,
+  Template,
+} from '@/types'
 
 export interface InboxInitialData {
   conversations?: InboxConversation[]
@@ -187,6 +203,37 @@ export function useInbox(options: UseInboxOptions = {}) {
     [selectedId, sendMessage, selectedConversation?.mode, conversationMutations]
   )
 
+  const handleSendTemplate = useCallback(
+    async (template: Template, values: Record<string, string>) => {
+      if (!selectedId) return
+
+      try {
+        if (selectedConversation?.mode === 'bot') {
+          await conversationMutations.switchMode({ id: selectedId, mode: 'human' })
+        }
+
+        const content = renderInboxTemplatePreview(template, values)
+        const templateParams = mapTemplateParamsForApi(values)
+
+        await sendMessage({
+          content,
+          message_type: 'template',
+          template_name: template.name,
+          template_params: Object.keys(templateParams).length > 0 ? templateParams : undefined,
+          message_payload: {
+            template_name: template.name,
+            headerMediaPreviewUrl: getTemplateHeaderImageUrl(template),
+            hasImageHeader: hasImageHeader(template),
+          },
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Erro ao enviar template'
+        toast.error('Falha ao enviar template', { description: message })
+      }
+    },
+    [selectedId, selectedConversation?.mode, conversationMutations, sendMessage],
+  )
+
   // Toggle mode (bot <-> human) with configured timeout
   const handleModeToggle = useCallback(async () => {
     if (!selectedConversation) return
@@ -282,6 +329,7 @@ export function useInbox(options: UseInboxOptions = {}) {
     hasMoreMessages,
     onLoadMoreMessages: loadMoreMessages,
     onSendMessage: handleSendMessage,
+    onSendTemplate: handleSendTemplate,
     isSending,
 
     // Labels

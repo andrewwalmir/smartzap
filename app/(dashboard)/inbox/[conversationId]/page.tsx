@@ -43,6 +43,7 @@ function InboxConversationPageContent({ conversationId }: { conversationId: stri
         hasMoreMessages={inbox.hasMoreMessages}
         onLoadMoreMessages={inbox.onLoadMoreMessages}
         onSendMessage={inbox.onSendMessage}
+        onSendTemplate={inbox.onSendTemplate}
         isSending={inbox.isSending}
         // Labels
         labels={inbox.labels}

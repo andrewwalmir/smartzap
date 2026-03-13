@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHookWithProviders, waitFor, act } from '@/tests/helpers/hook-test-utils'
-import { buildInboxConversation, buildInboxMessage } from '@/tests/helpers/factories'
+import { buildInboxConversation, buildInboxMessage, buildTemplate } from '@/tests/helpers/factories'
 
 // Mock Supabase Realtime
 vi.mock('@/lib/supabase-realtime', () => ({
@@ -487,6 +487,43 @@ describe('useInbox', () => {
 
       expect(sendMessageMock).not.toHaveBeenCalled()
     })
+
+    it('deve enviar template com preview renderizado e payload do header', async () => {
+      const sendMessageMock = vi.fn().mockResolvedValue({})
+      mockConversationWithMessages.mockReturnValue({
+        ...defaultConversationWithMessagesReturn,
+        conversation: buildInboxConversation({ id: 'conv-1', mode: 'human' }),
+        sendMessage: sendMessageMock,
+      })
+
+      const template = buildTemplate({
+        name: 'reabertura',
+        headerMediaPreviewUrl: 'https://example.com/header.jpg',
+        components: [
+          { type: 'HEADER', format: 'IMAGE' },
+          { type: 'BODY', text: 'Olá {{1}}' },
+        ],
+      })
+
+      const { result } = renderHookWithProviders(() =>
+        useInbox({ initialConversationId: 'conv-1' })
+      )
+
+      await act(async () => {
+        await result.current.onSendTemplate(template, { 1: 'Andre' })
+      })
+
+      expect(sendMessageMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message_type: 'template',
+          template_name: 'reabertura',
+          template_params: { body: ['Andre'] },
+          message_payload: expect.objectContaining({
+            headerMediaPreviewUrl: 'https://example.com/header.jpg',
+          }),
+        }),
+      )
+    })
   })
 
   // ---------------------------------------------------------------------------
@@ -918,6 +955,7 @@ describe('useInbox', () => {
       expect(result.current).toHaveProperty('hasMoreMessages')
       expect(result.current).toHaveProperty('onLoadMoreMessages')
       expect(result.current).toHaveProperty('onSendMessage')
+      expect(result.current).toHaveProperty('onSendTemplate')
       expect(result.current).toHaveProperty('isSending')
 
       // Labels

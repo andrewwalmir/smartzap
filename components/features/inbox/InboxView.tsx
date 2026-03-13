@@ -26,6 +26,7 @@ import type {
   InboxMessage,
   InboxLabel,
   InboxQuickReply,
+  Template,
   ConversationStatus,
   ConversationMode,
   ConversationPriority,
@@ -52,6 +53,7 @@ export interface InboxViewProps {
 
   // Message sending
   onSendMessage: (content: string) => void
+  onSendTemplate?: (template: Template, values: Record<string, string>) => Promise<void>
   isSending: boolean
 
   // Labels
@@ -106,6 +108,7 @@ export function InboxView({
   hasMoreMessages,
   onLoadMoreMessages,
   onSendMessage,
+  onSendTemplate,
   isSending,
   labels,
   quickReplies,
@@ -229,6 +232,7 @@ export function InboxView({
                 hasMoreMessages={hasMoreMessages}
                 onLoadMore={onLoadMoreMessages}
                 onSendMessage={onSendMessage}
+                onSendTemplate={onSendTemplate}
                 onModeToggle={onModeToggle}
                 onClose={onCloseConversation}
                 onReopen={onReopenConversation}
